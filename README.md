@@ -36,6 +36,48 @@ The dataset allows us to modify instructions while keeping the environment fixed
 
 ---
 
+
+## 📁 Repository Structure
+
+The repository is organized to clearly separate data, code, and environment setup:
+
+```text
+nlp-allocentric-spatial-reasoning/
+├── data/
+│   └── manhattan/
+│       └── manhattan_graph.gpickle   # Fixed Manhattan street graph (OSM-derived)
+├── scripts/
+│   └── sanity_check.py               # Graph sanity check (Task 1)
+├── requirements.txt                  # Python dependencies
+├── .gitignore
+└── README.md
+```
+The virtual environment (`.venv/`) is created locally and is not tracked by Git.
+
+---
+## ⚙️ Setup & Graph Sanity Check
+
+### Environment setup
+
+Create and activate a virtual environment:
+
+    python -m venv .venv
+    .venv\Scripts\activate             # Windows
+    # source .venv/bin/activate        # macOS / Linux
+
+### Install dependencies
+
+    pip install -r requirements.txt
+
+### Run the graph sanity check
+
+    python scripts/sanity_check.py
+
+This script loads the fixed Manhattan street graph and performs a minimal symbolic
+navigation check (shortest path and coarse direction), without using any language model.
+
+---
+
 ## 🔧 High-Level Pipeline
 
 1. **Instruction** (original or underspecified)
