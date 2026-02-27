@@ -73,6 +73,35 @@ Create and activate a virtual environment:
 
     python scripts/sanity_check.py
 
+### Load and preprocess the RVS dataset
+
+## Inspect the dataset structure:
+
+    python scripts/inspect_data.py
+
+
+## Normalize raw Hugging Face data into a consistent internal format:
+
+    python scripts/normalize_raw.py
+
+
+## Ground instructions to graph nodes:
+
+    python scripts/attach_target_node.py
+
+
+These steps:
+
+1. load the RVS dataset from Hugging Face,
+
+2. extract instruction text and goal coordinates,
+
+3. map each target latitude/longitude to the nearest graph node,
+
+4. store target_node_id for training and evaluation.
+
+After this stage, instructions are graph-grounded and ready for model training or robustness evaluation.
+
 This script loads the fixed Manhattan street graph and performs a minimal symbolic
 navigation check (shortest path and coarse direction), without using any language model.
 
