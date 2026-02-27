@@ -71,7 +71,8 @@ Create and activate a virtual environment:
 
 ### Run the graph sanity check
 
-    python scripts/sanity_check.py
+    #python scripts/sanity_check.py
+    python scripts/sanity_check_all_graphs.py
 
 ## Load and preprocess the RVS dataset
 
