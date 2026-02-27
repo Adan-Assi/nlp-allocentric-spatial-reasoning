@@ -338,6 +338,20 @@ class SymbolicSolver:
                 )
         return total
 
+# ========== find nearest node ==========
+    def find_nearest_node(self, lat: float, lon: float):
+        """
+        Return (nearest_node_id, distance_m) to the nearest graph node.
+        """
+        best_id = None
+        best_dist = float("inf")
+        for node_id, node in self.nodes.items():
+            d = self._calculate_distance(lat, lon, node["lat"], node["lon"])
+            if d < best_dist:
+                best_dist = d
+                best_id = node_id
+        return best_id, best_dist
+
 
 # ========== TESTING ==========
 

@@ -1,4 +1,4 @@
-"""
+ """
 Task 3: Instruction Under-specification Generator (BASELINE)
 Systematic degradation of RVS navigation instructions
 
