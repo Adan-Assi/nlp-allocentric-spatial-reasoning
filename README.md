@@ -73,19 +73,19 @@ Create and activate a virtual environment:
 
     python scripts/sanity_check.py
 
-### Load and preprocess the RVS dataset
+## Load and preprocess the RVS dataset
 
-## Inspect the dataset structure:
+### Inspect the dataset structure:
 
     python scripts/inspect_data.py
 
 
-## Normalize raw Hugging Face data into a consistent internal format:
+### Normalize raw Hugging Face data into a consistent internal format:
 
     python scripts/normalize_raw.py
 
 
-## Ground instructions to graph nodes:
+### Ground instructions to graph nodes:
 
     python scripts/attach_target_node.py
 
