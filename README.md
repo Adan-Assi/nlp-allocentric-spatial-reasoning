@@ -79,15 +79,14 @@ Create and activate a virtual environment:
 
     python scripts/inspect_data.py
 
-
 ### Normalize raw Hugging Face data into a consistent internal format:
 
     python scripts/normalize_raw.py
 
-
 ### Ground instructions to graph nodes:
-
-    python scripts/attach_target_node.py
+    python scripts/build_region_graphs.py     # only once
+    python scripts/attach_target_node_all_regions.py
+    python scripts/grounding_report_all_regions.py
 
 
 These steps:
