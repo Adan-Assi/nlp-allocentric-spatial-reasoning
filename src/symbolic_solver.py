@@ -338,6 +338,44 @@ class SymbolicSolver:
                 )
         return total
 
+    # ============================================================
+    # ========== candidate generation: nodes within radius ==========
+    # ============================================================
+    def nodes_within_radius(self, lat: float, lon: float, radius_m: float):
+        """
+        Return node IDs within radius_m of (lat, lon).
+        Uses self.nodes dict (lat/lon stored per node).
+        """
+        out = []
+        for node_id, node in self.nodes.items():
+            d = self._calculate_distance(lat, lon, node["lat"], node["lon"])
+            if d <= radius_m:
+                out.append(node_id)
+        return out
+
+
+    # ============================================================
+    # ========== candidate filtering: direction constraint ==========
+    # ============================================================
+    def filter_nodes_by_direction(self, start_lat: float, start_lon: float, node_ids, direction: str):
+        """
+        Keep nodes whose coarse direction from start matches direction.
+        Solver direction outputs one of: N/E/S/W.
+        """
+        direction = direction.strip().upper()
+
+        # allow "north/east/..." too
+        word2card = {"NORTH": "N", "SOUTH": "S", "EAST": "E", "WEST": "W"}
+        direction = word2card.get(direction, direction)
+
+        kept = []
+        for node_id in node_ids:
+            node = self.nodes[node_id]
+            d = self.get_coarse_direction((start_lat, start_lon), (node["lat"], node["lon"]))
+            if d == direction:
+                kept.append(node_id)
+        return kept
+
 # ========== find nearest node ==========
     def find_nearest_node(self, lat: float, lon: float):
         """

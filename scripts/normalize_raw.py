@@ -1,7 +1,7 @@
 import pandas as pd
 from pathlib import Path
 
-RAW_DIR = Path("data/raw_hf")
+RAW_DIR = Path("data/splits")
 OUT_DIR = Path("data/processed")
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 

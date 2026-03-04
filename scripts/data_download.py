@@ -2,7 +2,7 @@ from datasets import load_dataset
 from pathlib import Path
 
 HF_DATASET = "tzufi/RVS"
-OUT_DIR = Path("data/raw_hf")
+OUT_DIR = Path("data/splits")
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
 ds = load_dataset(HF_DATASET)
