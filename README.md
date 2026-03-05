@@ -57,7 +57,7 @@ The virtual environment (`.venv/`) is created locally and is not tracked by Git.
 ---
 ## ⚙️ Setup & Graph Sanity Check
 
-### Environment setup
+### 1. Environment setup
 
 Create and activate a virtual environment:
 
@@ -65,45 +65,54 @@ Create and activate a virtual environment:
     .venv\Scripts\activate             # Windows
     # source .venv/bin/activate        # macOS / Linux
 
-### Install dependencies
+### 2. Install dependencies
+
+Ensure your environment is active, then install the required engines (including `pyarrow` for data and `scikit-learn` for spatial indexing):
 
     pip install -r requirements.txt
 
-### Run the graph sanity check
+### 3. Run the graph sanity check
 
-    #python scripts/sanity_check.py
-    python scripts/sanity_check_all_graphs.py
+Verify the maps are loading correctly:
+
+    #python tests/sanity_check.py
+    python tests/sanity_check_all_graphs.py
 
 ## Load and preprocess the RVS dataset
 
-### Inspect the dataset structure:
+Follow these steps to prepare the data. These steps load the RVS dataset from Hugging Face, extract coordinates, map them to the nearest graph node, and store the results for training.
 
-    python scripts/inspect_data.py
+**Normalize raw data:** Convert Hugging Face data into consistent internal formats.
 
-### Normalize raw Hugging Face data into a consistent internal format:
+```bash
+python scripts/normalize_raw.py
+```
 
-    python scripts/normalize_raw.py
+**Ground instructions to graph nodes:** Map lat/lon coordinates to the nearest street graph nodes.
 
-### Ground instructions to graph nodes:
-    python scripts/build_region_graphs.py     # only once
-    python scripts/attach_target_node_all_regions.py
-    python scripts/grounding_report_all_regions.py
+```bash
+python scripts/attach_target_node_all_regions.py
+```
 
+> ⚠️ **Important Note:** The first time you run this for a region (e.g., Manhattan), the script builds a spatial index (BallTree). The progress bar may stay at **0% for 1–3 minutes** while indexing. **Do not interrupt it.** Once indexed, it will process thousands of rows per minute.
 
-These steps:
+**Verify results:** Generate a report on the grounding success rate.
 
-1. load the RVS dataset from Hugging Face,
+```bash
+python scripts/grounding_report_all_regions.py
+```
 
-2. extract instruction text and goal coordinates,
+**What these steps achieve:**
 
-3. map each target latitude/longitude to the nearest graph node,
+1. **Load** the RVS dataset from Hugging Face.
 
-4. store target_node_id for training and evaluation.
+2. **Extract** instruction text and goal coordinates.
+
+3. **Map each** target latitude/longitude to the nearest graph node (grounding).
+
+4. **Store** `target_node_id` in Parquet format for efficient training and evaluation.
 
 After this stage, instructions are graph-grounded and ready for model training or robustness evaluation.
-
-This script loads the fixed Manhattan street graph and performs a minimal symbolic
-navigation check (shortest path and coarse direction), without using any language model.
 
 ---
 

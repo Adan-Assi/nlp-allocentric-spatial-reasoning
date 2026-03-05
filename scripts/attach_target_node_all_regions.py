@@ -2,6 +2,7 @@ import json
 import pandas as pd
 from pathlib import Path
 import sys
+from tqdm import tqdm
 
 # Make project root importable
 sys.path.append(str(Path(__file__).resolve().parents[1]))
@@ -24,7 +25,10 @@ def ground_region(df_region: pd.DataFrame, solver: SymbolicSolver) -> pd.DataFra
     nodes = []
     dists = []
 
-    for lat, lon in zip(df_region["target_lat"].tolist(), df_region["target_lon"].tolist()):
+    # Added tqdm() here to show a live progress bar
+    print(f"Starting grounding for {len(df_region)} rows...")
+    
+    for lat, lon in tqdm(zip(df_region["target_lat"].tolist(), df_region["target_lon"].tolist()), total=len(df_region)):
         node_id, dist_m = solver.find_nearest_node(lat, lon)
         nodes.append(node_id)
         dists.append(dist_m)
