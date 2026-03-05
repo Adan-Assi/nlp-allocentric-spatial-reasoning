@@ -1,10 +1,31 @@
 # Virtual environment
 .venv/
+env/
+venv/
 
-# Python cache
+# Python / OS junk
 __pycache__/
 *.pyc
-
-# OS junk
 .DS_Store
 Thumbs.db
+
+# --- ML / DATA SPECIFIC --- #
+
+# Ignore all raw and processed data
+data/raw_hf/
+data/processed/
+data/graphs/*.gpickle
+data/graphs/*.gpkg
+data/graphs/*.graphml
+
+# Ignore caches and temporary artifacts
+cache/
+.ipynb_checkpoints/
+
+# Ignore Model weights and checkpoints
+models/
+runs/
+checkpoints/
+
+# Allow the manifest or small config files inside data
+!data/graphs/manifest.json
