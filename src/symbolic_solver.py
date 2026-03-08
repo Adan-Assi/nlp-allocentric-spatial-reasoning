@@ -1,542 +1,137 @@
-"""
-Task 2: Symbolic Graph Operations (FINAL VERSION)
-Frozen scope - supporting operations for RVS evaluation
-
-This module provides GRAPH QUERY OPERATIONS, not end-to-end ground truth.
-It does NOT parse instructions or interpret text.
-
-Status: Week 1 - Core operations implemented and tested
-"""
-
-import json
 import math
 import pickle
 from typing import List, Tuple, Optional, Dict
 from collections import deque
 from pathlib import Path
 import heapq
-import osmnx as ox
+import networkx as nx
+
+# Internal Project Imports
+import config
+from src.oracle_engine import OracleEngine
+import src.utils as utils
 
 class SymbolicSolver:
     """
     Symbolic graph operations for RVS map queries.
     
-    SCOPE (FROZEN):
-    - Reachability checking (BFS)
-    - Shortest path computation (Dijkstra)
-    - Coarse 4-way direction (N/E/S/W, dominant-axis)
-    
-    EXPLICITLY EXCLUDED:
-    - Language parsing
-    - Instruction interpretation  
-    - Ambiguity resolution
-    - Landmark extraction from text
+    This class handles the 'How to get there' logic, using the OracleEngine
+    as the 'Where - Sense Organ' to resolve landmarks and locations.
     """
     
-    def __init__(self, graph_data_path: str):
+    def __init__(self, oracle: OracleEngine):
         """
-        Load RVS map graph.
+        Initialize the solver with a pre-loaded Oracle.
         
         Args:
-            graph_data_path: Path to graph file (.json, .pickle, .gpickle)
+            oracle: An instance of OracleEngine already containing the graph and POIs.
         """
-        self.graph_path = Path(graph_data_path)
+        self.oracle = oracle
+        self.G = oracle.G  # Access the NetworkX graph directly from the Oracle
         
-        # CRITICAL FIX 1: Use pickle to load your actual map files
-        with open(self.graph_path, "rb") as f:
-            self.G = pickle.load(f)
-        
-        # CRITICAL FIX 2: Map to OSMnx structures
+        # Salvaged properties for the Dijkstra logic
         self.nodes = self.G.nodes(data=True)
         self.edges = self.G.adj
-        
-    def _load_graph(self, path: str) -> Dict:
-        """
-        Load graph from file with proper edge filtering.
-        
-        Supports: JSON, pickle, NetworkX gpickle
-        """
-        if not Path(path).exists():
-            print(f"⚠️  Graph file not found: {path}")
-            print("📝 Creating sample graph for testing...")
-            return self._create_sample_graph()
-        
-        # Load based on extension
-        if path.endswith('.json'):
-            with open(path, 'r') as f:
-                graph = json.load(f)
-        elif path.endswith(('.pickle', '.pkl', '.gpickle')):
-            import pickle
-            with open(path, 'rb') as f:
-                data = pickle.load(f)
-            
-            # Check if NetworkX graph
-            try:
-                import networkx as nx
-                if isinstance(data, (nx.Graph, nx.DiGraph)):
-                    print("📊 Detected NetworkX graph, converting...")
-                    graph = self._convert_networkx_graph(data)
-                else:
-                    graph = data
-            except ImportError:
-                print("⚠️  NetworkX not installed, treating as regular pickle")
-                graph = data
-        else:
-            raise ValueError(f"Unsupported file format: {path}")
-        
-        self.nodes = graph.get('nodes', {})
-        self.edges = graph.get('edges', {})
-        
-        # Validate edge integrity
-        self._validate_edges()
-        
-        print(f"✅ Loaded graph: {len(self.nodes)} nodes, "
-              f"{sum(len(e) for e in self.edges.values())} edges")
-        return graph
-    
-    def _convert_networkx_graph(self, G) -> Dict:
-        """
-        Convert NetworkX graph with proper edge filtering.
-        
-        CRITICAL: Only include edges between valid nodes.
-        """
-        # FIRST PASS: Identify nodes with valid coordinates
-        valid_nodes = set()
-        nodes = {}
-        
-        for node_id, node_data in G.nodes(data=True):
-            # Try different attribute names for coordinates
-            lat = node_data.get('lat') or node_data.get('latitude') or node_data.get('y')
-            lon = node_data.get('lon') or node_data.get('longitude') or node_data.get('x')
-            
-            if lat is not None and lon is not None:
-                valid_nodes.add(node_id)
-                nodes[str(node_id)] = {
-                    'lat': float(lat),
-                    'lon': float(lon),
-                    'name': node_data.get('name', f'Node_{node_id}'),
-                    **{k: v for k, v in node_data.items() 
-                       if k not in ['lat', 'lon', 'latitude', 'longitude', 'x', 'y']}
-                }
-        
-        print(f"   Valid nodes with coordinates: {len(valid_nodes)}")
-        
-        # SECOND PASS: Build edges ONLY between valid nodes
-        edges = {}
-        skipped_edges = 0
-        
-        for node_id in valid_nodes:
-            neighbors = []
-            for neighbor in G.neighbors(node_id):
-                if neighbor in valid_nodes:
-                    neighbors.append(str(neighbor))
-                else:
-                    skipped_edges += 1
-            edges[str(node_id)] = neighbors
-        
-        if skipped_edges > 0:
-            print(f"   Skipped {skipped_edges} edges to invalid nodes")
-        
-        return {'nodes': nodes, 'edges': edges}
-    
-    def _validate_edges(self):
-        """
-        Validate and clean edges pointing to non-existent nodes.
-        FIXED: Safer list filtering instead of remove-while-iterating.
-        """
-        invalid_count = 0
-        
-        for node_id, neighbors in list(self.edges.items()):
-            filtered = [n for n in neighbors if n in self.nodes]
-            invalid_count += (len(neighbors) - len(filtered))
-            self.edges[node_id] = filtered
-        
-        if invalid_count > 0:
-            print(f"⚠️  WARNING: Removed {invalid_count} edges to non-existent nodes")
-    
-    def _create_sample_graph(self) -> Dict:
-        """Create sample graph for testing."""
-        nodes = {
-            'central_park': {'lat': 40.7829, 'lon': -73.9654, 'name': 'Central Park'},
-            'museum': {'lat': 40.7794, 'lon': -73.9632, 'name': 'Museum'},
-            'library': {'lat': 40.7532, 'lon': -73.9822, 'name': 'Library'},
-            'station': {'lat': 40.7580, 'lon': -73.9855, 'name': 'Station'},
-            'park_north': {'lat': 40.7950, 'lon': -73.9654, 'name': 'Park North'},
-            'times_square': {'lat': 40.7580, 'lon': -73.9855, 'name': 'Times Square'},
-        }
-        
-        # Build bidirectional edges properly
-        edges_bidirectional = {node_id: [] for node_id in nodes}
-        
-        connections = [
-            ('central_park', 'museum'),
-            ('central_park', 'park_north'),
-            ('museum', 'library'),
-            ('library', 'station'),
-            ('station', 'times_square'),
-        ]
-        
-        for source, target in connections:
-            edges_bidirectional[source].append(target)
-            edges_bidirectional[target].append(source)
-        
-        self.nodes = nodes
-        self.edges = edges_bidirectional
-        
-        print("📝 Using sample graph (6 nodes)")
-        return {'nodes': nodes, 'edges': edges_bidirectional}
 
     # ========== CAPABILITY 1: REACHABILITY ==========
     
     def check_reachability(self, start_node: str, end_node: str) -> bool:
-        """
-        Check if path exists between nodes.
-        
-        Args:
-            start_node: Starting node ID
-            end_node: Target node ID
+            """
+            Check if path exists between nodes using the Oracle's graph.
             
-        Returns:
-            True if reachable, False otherwise
-        """
-        if start_node not in self.nodes or end_node not in self.nodes:
-            return False
-        if start_node == end_node:
-            return True
-        
-        visited = set([start_node])
-        queue = deque([start_node])
-        
-        while queue:
-            current = queue.popleft()
-            for neighbor in self.edges.get(current, []):
-                if neighbor == end_node:
-                    return True
-                if neighbor not in visited:
-                    visited.add(neighbor)
-                    queue.append(neighbor)
-        
-        return False
+            Args:
+                start_node: Starting node ID (e.g., '1#666')
+                end_node: Target node ID
+                
+            Returns:
+                True if reachable, False otherwise
+            """
+            # 1. Validation: Ensure both nodes actually exist in the graph
+            if start_node not in self.G or end_node not in self.G:
+                return False
+                
+            # 2. Use NetworkX built-in reachability (has_path)
+            # This replaces our previous manual deque/queue logic with an optimized version
+            return nx.has_path(self.G, start_node, end_node)
     
     # ========== CAPABILITY 2: SHORTEST PATH ==========
     
     def compute_shortest_path(self, start_node: str, end_node: str) -> List[str]:
         """
-        Find shortest path using geographic distance.
-        
-        Args:
-            start_node: Starting node ID
-            end_node: Target node ID
-            
-        Returns:
-            List of node IDs in path (empty if no path)
+        Find shortest path using actual geographic distance as the edge weight.
         """
-        if start_node not in self.nodes or end_node not in self.nodes:
+        # 1. Validation
+        if start_node not in self.G or end_node not in self.G:
             return []
-        if start_node == end_node:
-            return [start_node]
         
-        # Dijkstra's algorithm
-        distances = {node: float('inf') for node in self.nodes}
-        distances[start_node] = 0
-        previous = {node: None for node in self.nodes}
-        pq = [(0, start_node)]
-        visited = set()
-        
-        while pq:
-            current_dist, current = heapq.heappop(pq)
-            
-            if current in visited:
-                continue
-            visited.add(current)
-            
-            if current == end_node:
-                # Reconstruct path
-                path = []
-                while current is not None:
-                    path.append(current)
-                    current = previous[current]
-                return list(reversed(path))
-            
-            for neighbor in self.edges.get(current, []):
-                if neighbor in visited:
-                    continue
-                
-                edge_distance = self._calculate_distance(
-                    self.nodes[current]['lat'], self.nodes[current]['lon'],
-                    self.nodes[neighbor]['lat'], self.nodes[neighbor]['lon']
-                )
-                
-                new_distance = current_dist + edge_distance
-                
-                if new_distance < distances[neighbor]:
-                    distances[neighbor] = new_distance
-                    previous[neighbor] = current
-                    heapq.heappush(pq, (new_distance, neighbor))
-        
-        return []
-    
-    def _calculate_distance(self, lat1: float, lon1: float, 
-                           lat2: float, lon2: float) -> float:
-        """Haversine distance in meters."""
-        R = 6371000  # Earth radius in meters
-        
-        phi1 = math.radians(lat1)
-        phi2 = math.radians(lat2)
-        delta_phi = math.radians(lat2 - lat1)
-        delta_lambda = math.radians(lon2 - lon1)
-        
-        a = math.sin(delta_phi / 2) ** 2 + \
-            math.cos(phi1) * math.cos(phi2) * math.sin(delta_lambda / 2) ** 2
-        c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-        
-        return R * c
+        # 2. Check reachability first (to avoid expensive calculations if impossible)
+        if not self.check_reachability(start_node, end_node):
+            return []
+
+        # 3. Use NetworkX Dijkstra with a dynamic weight function
+        # Instead of a pre-calculated 'weight' attribute, we use our utils math
+        try:
+            path = nx.shortest_path(
+                self.G, 
+                source=start_node, 
+                target=end_node, 
+                weight=lambda u, v, _: utils.get_euclidean_dist(self.G, u, v)
+            )
+            return path
+        except nx.NetworkXNoPath:
+            return []
     
     # ========== CAPABILITY 3: COARSE 4-WAY DIRECTION (DOMINANT-AXIS) ==========
     
-    def get_coarse_direction(self, coord1: Tuple[float, float], 
-                            coord2: Tuple[float, float]) -> str:
-        """
-        Determine coarse 4-way direction (N/E/S/W) using dominant axis.
+    def get_coarse_direction(self, start_node: str, end_node: str) -> str:
+        n1 = self.G.nodes[start_node]
+        n2 = self.G.nodes[end_node]
         
-        This is more stable and intuitive than bearing-based quadrants.
-        Returns the direction along whichever axis has the larger change.
+        # Use the utils shared math brain
+        return utils.get_dominant_direction(n1['y'], n1['x'], n2['y'], n2['x'])
         
-        Args:
-            coord1: (lat, lon) of first point
-            coord2: (lat, lon) of second point
-            
-        Returns:
-            One of: 'N', 'E', 'S', 'W'
-        """
-        lat1, lon1 = coord1
-        lat2, lon2 = coord2
-        
-        dlat = lat2 - lat1
-        dlon = lon2 - lon1
-        
-        # Use dominant axis (larger absolute change)
-        if abs(dlat) >= abs(dlon):
-            return 'N' if dlat > 0 else 'S'
-        else:
-            return 'E' if dlon > 0 else 'W'
-    
     # ========== HELPER METHODS ==========
-    
+        
     def get_node_coordinates(self, node_id: str) -> Optional[Tuple[float, float]]:
-        """Get (lat, lon) of a node."""
-        if node_id not in self.nodes:
+        """Get (lat, lon) of a node from the NetworkX graph."""
+        if node_id not in self.G:
             return None
-        node = self.nodes[node_id]
-        return (node['lat'], node['lon'])
+        node = self.G.nodes[node_id]
+        # Standardize to (lat, lon)
+        return (node['y'], node['x'])
     
     def get_path_length(self, path: List[str]) -> float:
-        """Calculate total geographic distance of path in meters."""
+        """
+        Calculate total geographic distance of a path in meters.
+        Uses the high-precision geodesic math from utils.
+        """
         if len(path) < 2:
             return 0.0
         
-        total = 0.0
+        total_meters = 0.0
         for i in range(len(path) - 1):
-            coord1 = self.get_node_coordinates(path[i])
-            coord2 = self.get_node_coordinates(path[i + 1])
-            if coord1 and coord2:
-                total += self._calculate_distance(
-                    coord1[0], coord1[1], coord2[0], coord2[1]
-                )
-        return total
-
-    # ============================================================
-    # ========== candidate generation: nodes within radius ==========
-    # ============================================================
-    def nodes_within_radius(self, lat: float, lon: float, radius_m: float):
-        """
-        Return node IDs within radius_m of (lat, lon).
-        Uses self.nodes dict (lat/lon stored per node).
-        """
-        out = []
-        for node_id, node in self.nodes.items():
-            d = self._calculate_distance(lat, lon, node["lat"], node["lon"])
-            if d <= radius_m:
-                out.append(node_id)
-        return out
-
-
-    # ============================================================
-    # ========== candidate filtering: direction constraint ==========
-    # ============================================================
-    def filter_nodes_by_direction(self, start_lat: float, start_lon: float, node_ids, direction: str):
-        """
-        Keep nodes whose coarse direction from start matches direction.
-        Solver direction outputs one of: N/E/S/W.
-        """
-        direction = direction.strip().upper()
-
-        # allow "north/east/..." too
-        word2card = {"NORTH": "N", "SOUTH": "S", "EAST": "E", "WEST": "W"}
-        direction = word2card.get(direction, direction)
-
-        kept = []
-        for node_id in node_ids:
-            node = self.nodes[node_id]
-            d = self.get_coarse_direction((start_lat, start_lon), (node["lat"], node["lon"]))
-            if d == direction:
-                kept.append(node_id)
-        return kept
-
-# ========== find nearest node ==========
-    def find_nearest_node(self, lat: float, lon: float) -> Tuple[int, float]:
-        """
-        Optimized version using OSMnx Spatial Indexing.
-        Replaces the brute-force loop for 1000x better performance.
-        """
-        # 1. Use OSMnx's KD-Tree search (High speed)
-        # Note: X is longitude, Y is latitude
-        node_id = ox.distance.nearest_nodes(self.G, X=lon, Y=lat)
-        
-        # 2. Get the actual coordinates of that node from the graph
-        target_node = self.G.nodes[node_id]
-        
-        # 3. Calculate Great Circle distance (High accuracy)
-        # OSMnx nodes use 'y' and 'x'
-        dist_m = ox.distance.great_circle(lat, lon, target_node['y'], target_node['x'])
-        
-        return node_id, dist_m
-
-    def get_coords(self, node_id: int) -> Tuple[float, float]:
-        """Helper for coordinate retrieval."""
-        node = self.G.nodes[node_id]
-        return node['y'], node['x']
-
-# ========== TESTING ==========
-
-def run_tests():
-    print("=" * 70)
-    print("SYMBOLIC SOLVER TESTS (Task 2 - Final)")
-    print("=" * 70)
-
-    solver = SymbolicSolver('data/manhattan/manhattan_graph.gpickle')
-
-    print("\n" + "="*70)
-    print("TEST 0: BASIC LOAD CHECK")
-    print("="*70)
-    print(f"Nodes: {len(solver.nodes)}")
-    print(f"Edges: {sum(len(e) for e in solver.edges.values())}")
-
-    # -------------------------
-    # TEST 1: REACHABILITY
-    # -------------------------
-    print("\n" + "="*70)
-    print("TEST 1: REACHABILITY")
-    print("="*70)
-
-    # If sample node IDs exist, run sample tests.
-    sample_nodes = ["central_park", "library", "times_square"]
-    if all(n in solver.nodes for n in sample_nodes):
-        tests = [
-            ('central_park', 'library', True),
-            ('central_park', 'times_square', True),
-            ('central_park', 'nonexistent', False),
-        ]
-        for start, end, expected in tests:
-            result = solver.check_reachability(start, end)
-            status = "✅" if result == expected else "❌"
-            print(f"{status} {start} → {end}: {result} (expected {expected})")
-    else:
-        # Real graph: pick two existing nodes from the graph
-        node_ids = list(solver.nodes.keys())
-        n1 = node_ids[0]
-        n2 = node_ids[500]  # any index as long as < len(node_ids)
-
-        result = solver.check_reachability(n1, n2)
-        print(f"✅ Real-graph reachability test: {n1} → {n2}: {result}")
-        print("ℹ️  Note: This test checks functionality, not an expected True/False value.")
-
-    # -------------------------
-    # TEST 2: SHORTEST PATH
-    # -------------------------
-    print("\n" + "="*70)
-    print("TEST 2: SHORTEST PATH")
-    print("="*70)
-
-    if all(n in solver.nodes for n in sample_nodes):
-        start, end = "central_park", "station"
-    else:
-        node_ids = list(solver.nodes.keys())
-        start, end = node_ids[0], node_ids[500]
-
-    path = solver.compute_shortest_path(start, end)
-    if path:
-        print(f"✅ Path length (nodes): {len(path)}")
-        print(f"   First 5 nodes: {path[:5]}")
-        print(f"   Distance: {solver.get_path_length(path):.2f}m")
-    else:
-        print("⚠️  No path found (graph may be disconnected OR nodes chosen are in different components).")
-        print("    Try increasing the chance they’re connected by picking a nearby neighbor.")
-        # Optional: try neighbor-based end node
-        neighbors = solver.edges.get(start, [])
-        if neighbors:
-            end2 = neighbors[0]
-            path2 = solver.compute_shortest_path(start, end2)
-            if path2:
-                print(f"✅ Neighbor path works: {start} → {end2}, length={len(path2)}")
-
-    # -------------------------
-    # TEST 3: DIRECTION (unchanged)
-    # -------------------------
-    print("\n" + "="*70)
-    print("TEST 3: COARSE 4-WAY DIRECTION (Dominant-Axis)")
-    print("="*70)
-
-    tests = [
-        ((40.7829, -73.9654), (40.7950, -73.9654), 'N'),
-        ((40.7829, -73.9654), (40.7794, -73.9632), 'S'),
-        ((40.7829, -73.9654), (40.7532, -73.9822), 'S'),
-        ((40.7829, -73.9654), (40.7829, -73.9754), 'W'),
-    ]
-    for c1, c2, expected in tests:
-        result = solver.get_coarse_direction(c1, c2)
-        status = "✅" if result == expected else "❌"
-        print(f"{status} {c1} → {c2}: {result} (expected {expected})")
-
-    print("\n" + "="*70)
-    print("✅ TESTS COMPLETE")
-    print("="*70)
-
-def test_real_graph():
-    """
-    Test loading real Manhattan graph.
-    Uncomment and run when you have the actual .gpickle file.
-    """
-    print("\n" + "="*70)
-    print("REAL MANHATTAN GRAPH TEST")
-    print("="*70)
+            # Use our unified utility function
+            segment_dist = utils.get_euclidean_dist(self.G, path[i], path[i+1])
+            total_meters += segment_dist
+            
+        return total_meters
     
-    try:
-        # Update path to match your repo structure
-        solver = SymbolicSolver('data/manhattan/manhattan_graph.gpickle')
+    def get_path_to_landmark(self, current_node: str, landmark_name: str) -> list:
+        """
+        Calculates a path from the agent's current node to a named landmark.
+        This bridges the Oracle's NLP resolution with the Solver's math.
+        """
+        # 1. Resolve Name to Node ID via Oracle
+        target_node = self.oracle.resolve_landmark(landmark_name)
         
-        print(f"\n✅ Successfully loaded Manhattan graph!")
-        print(f"   Nodes: {len(solver.nodes)}")
-        print(f"   Total edges: {sum(len(e) for e in solver.edges.values())}")
-        
-        # Test with first few nodes
-        node_ids = list(solver.nodes.keys())[:5]
-        print(f"\n   Sample node IDs: {node_ids}")
-        
-        if len(node_ids) >= 2:
-            n1, n2 = node_ids[0], node_ids[1]
-            reachable = solver.check_reachability(n1, n2)
-            print(f"\n   Reachability test: {n1} → {n2}: {reachable}")
-        
-    except FileNotFoundError:
-        print("⚠️  Manhattan graph file not found")
-        print("   Update path in test_real_graph() to match your repo structure")
-    except Exception as e:
-        print(f"❌ Error loading Manhattan graph: {e}")
+        if not target_node:
+            print(f"⚠️ Solver: Oracle could not resolve '{landmark_name}' to a graph node.")
+            return []
 
+        # 2. Check if the resolved node is actually in our graph
+        if target_node not in self.G:
+            print(f"⚠️ Solver: Resolved node {target_node} for '{landmark_name}' is not in the graph.")
+            return []
 
-if __name__ == '__main__':
-    run_tests()
-    
-    # Uncomment to test real Manhattan graph:
-    # test_real_graph()
+        # 3. Compute the path
+        return self.compute_shortest_path(current_node, target_node)

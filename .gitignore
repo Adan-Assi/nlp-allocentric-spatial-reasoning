@@ -5,15 +5,23 @@ venv/
 
 # Python / OS junk
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
 .DS_Store
 Thumbs.db
+*.log
 
 # --- ML / DATA SPECIFIC --- #
 
 # Ignore all raw and processed data
 data/raw_hf/
 data/processed/
+
+# Ignore Manhattan-specific binary data
+data/manhattan/*.gpickle
+data/manhattan/*.pkl
+
+# Ignore all graph formats
 data/graphs/*.gpickle
 data/graphs/*.gpkg
 data/graphs/*.graphml
