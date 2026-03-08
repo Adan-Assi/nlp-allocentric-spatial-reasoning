@@ -36,6 +36,22 @@ The dataset allows us to modify instructions while keeping the environment fixed
 
 ---
 
+## 📖 Documentation Hub
+
+Access the full project specifications and research strategy below:
+
+### 🧠 Strategy & Vision
+* [**Strategy & Calibration**](docs/STRATEGY_CALIBRATION.md) — *The "Big Picture."* Explains our "Brain Building" analogy, the 4 stages of the project, and how we use Manhattan as a logic laboratory.
+
+### ⚙️ Technical Specifications
+* [**Oracle Specification**](docs/ORACLE_SPEC.md) — *The "Math."* Deep dive into the Symbolic Solver's logic, including the Clamped Radius formula and Vector/Bearing filters.
+* [**Pipeline Data Flow**](docs/PIPELINE_FLOW.md) — *The "Architecture."* A step-by-step trace of how raw instruction text turns into a final answerability label.
+
+### 🗃️ Data & Implementation
+* [**Data & Graph Guide**](docs/DATA_GUIDE.md) — *The "Reference."* Detailed breakdown of the 74k-node Manhattan graph, POI pickle structure, and node ID prefixing (`1#`).
+* [**Task Tracker (TASKS.md)**](docs/TASKS.md) — *The "Roadmap."* Current sprint progress, pending logic implementations, and team assignments.
+
+---
 
 ## 📁 Repository Structure
 

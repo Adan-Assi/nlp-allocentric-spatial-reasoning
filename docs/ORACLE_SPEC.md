@@ -93,10 +93,12 @@ We evaluate model robustness by systematically "breaking" instructions:
 * **Landmark Masked:** Does $|S|$ increase? (Measures landmark importance).
 * **Distance Masked:** Does the default 500m radius create too much noise/ambiguity?
 
-
-
 ---
 
-## 📝 Pending Team Sync (Review Required)
-- [ ] **Radius Multiplier:** Are we happy with $1.1\times$ for long distances, or should we go to $1.2\times$?
-- [ ] **Landmark Proximity:** Is 20 meters a fair distance to consider a node "at" a landmark?
+## 📏 Finalized Spatial Constants (Updated Mar 2026)
+
+The team has converged on the following constants for the Manhattan environment:
+
+* **Search Radius ($R$):** Uses the "Human Error Buffer" formula: $\max(D \times 1.1, D + 80\text{m})$.
+* **Landmark Proximity ($S_0$):** $20\text{m}$ radius around the starting geocode to handle complex intersections.
+* **Node Prefix:** `1#` for projected street nodes (as defined in `config.py`).
