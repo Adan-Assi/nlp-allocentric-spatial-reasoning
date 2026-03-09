@@ -21,7 +21,7 @@
     - Done: Added `get_search_radius(distance)` using the max(D * 1.1, D + 80) logic to the Solver.
 - [x] **Task 2.3: Implement Vector "Away/Toward" Logic (COMPLETED)**
     - Done: Wrote the dot-product filter for relative movement (e.g., "moving away from the park").
-- [ ] **Task 2.5: Data-Driven Landmark Mapping**
+- [ ] **Task 2.5: Data-Driven Landmark Mapping (PENDING)**
     - Run frequency analysis on RVS instruction nouns to identify top landmarks.
     - Map top-frequency spatial nouns to OSM tags in `config.py`(e.g., "deli", "church").
     - Ensure 90% of landmark-based instructions have a corresponding mapping.
