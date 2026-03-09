@@ -43,5 +43,30 @@ LANDMARK_GROUPS = {
     'pharmacy':   {'column': 'amenity', 'value': 'pharmacy'}
 }
 
+# --- OSM Metadata Mapping (Updated for Task 2.5) ---
+# Maps keywords from instructions to specific columns and values in manhattan_poi.pkl
+LANDMARK_GROUPS = {
+    # Existing mappings
+    'cafe':       {'column': 'amenity', 'value': 'cafe'},
+    'coffee':     {'column': 'amenity', 'value': 'cafe'},
+    'library':    {'column': 'amenity', 'value': 'library'},
+    'museum':     {'column': 'tourism', 'value': 'museum'},
+    'park':       {'column': 'leisure', 'value': 'park'},
+    'fountain':   {'column': 'fountain', 'value': 'yes'},
+    'subway':     {'column': 'railway', 'value': 'station'},
+    'station':    {'column': 'railway', 'value': 'station'},
+    'hotel':      {'column': 'tourism', 'value': 'hotel'},
+    'restaurant': {'column': 'amenity', 'value': 'restaurant'},
+    'theatre':    {'column': 'amenity', 'value': 'theatre'},
+    'pharmacy':   {'column': 'amenity', 'value': 'pharmacy'},
+    
+    # --- NEW: Discovered Brand/Specific Mappings ---
+    'starbucks':       {'column': 'name', 'value': 'Starbucks'},
+    'chase bank':      {'column': 'name', 'value': 'Chase'},
+    'duane reade':     {'column': 'name', 'value': 'Duane Reade'},
+    'cvs':             {'column': 'name', 'value': 'CVS'},
+    'citi bike':       {'column': 'amenity', 'value': 'bicycle_rental'}
+}
+
 # Standard tags for broad fallback searches
 POI_SEARCH_COLUMNS = ['amenity', 'tourism', 'leisure', 'shop', 'historic', 'name']
