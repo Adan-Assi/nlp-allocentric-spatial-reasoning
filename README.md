@@ -86,6 +86,7 @@ Create and activate a virtual environment:
 Ensure your environment is active, then install the required engines (including `pyarrow` for data and `scikit-learn` for spatial indexing):
 
     pip install -r requirements.txt
+    python scripts/data_download.py
 
 ### 3. Run the graph sanity check
 
