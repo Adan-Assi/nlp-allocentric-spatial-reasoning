@@ -90,32 +90,38 @@ class OracleEngine:
         return is_near, distance, target_node
     
 
-    def get_candidate_nodes(self, landmark_name: str, radius_m: float = 500.0) -> list:
-        """
-        Finds all graph nodes within a radius of a named landmark.
-        
-        Args:
-            landmark_name: e.g., "Hell's Kitchen"
-            radius_m: Search radius in meters (default 500m)
-            
-        Returns:
-            List of Node IDs (e.g., ['1#101', '1#102'])
-        """
-        # 1. Resolve the name to a center point node
-        center_node = self.resolve_landmark(landmark_name)
-        if not center_node:
-            print(f"⚠️ Oracle: Cannot generate candidates for unknown landmark: {landmark_name}")
-            return []
+    def get_candidates_within_radius(self, origin: str, radius_m: float = 500.0) -> list:
+            """
+            Task 2.2 Integration: Finds all street nodes within a buffered radius.
+            Accepts: Node ID (e.g., '101') or Landmark Name (e.g., 'Cafe').
+            """
+            # 1. Resolve Origin to a Node ID
+            if origin in self.G:
+                center_node = origin
+            else:
+                center_node = self.resolve_landmark(origin)
+                
+            if not center_node:
+                return []
 
-        # 2. Iterate through graph nodes and filter by distance
-        candidates = []
-        for node_id in self.G.nodes:
-            # We use the high-precision geodesic math from utils
-            dist = utils.get_euclidean_dist(self.G, center_node, node_id)
-            if dist <= radius_m:
-                candidates.append(node_id)
-        
-        return candidates
+            # 2. Extract center coordinates once
+            lat1, lon1 = utils.get_node_coords(self.G, center_node)
+
+            candidates = []
+            for node_id, node_data in self.G.nodes(data=True):
+                # 3. Filter: Skip POI nodes, we want walkable street nodes
+                if str(node_id).startswith(self.prefix):
+                    continue
+                    
+                # 4. Use high-precision geodesic distance
+                dist = utils.get_geodesic_dist_raw(
+                    lat1, lon1, node_data['y'], node_data['x']
+                )
+                
+                if dist <= radius_m:
+                    candidates.append(node_id)
+            
+            return candidates
     
 
     def filter_candidates_by_direction(self, origin_node: str, candidate_ids: list, target_direction: str) -> list:

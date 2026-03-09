@@ -23,6 +23,7 @@ Before we begin training our models, we must have a mathematical "Ground Truth."
 
 ## 📚 Glossary of Sets
 * **$S_0$**: The set of possible starting nodes (accounts for intersection ambiguity).
+* **$R_{search}$**: The dynamic, clamped distance used to define "proximity" to a landmark.
 * **$C$**: The initial pool of candidates (The BallTree search radius).
 * **$S$**: The final filtered set of valid destinations.
 
@@ -33,12 +34,35 @@ Before we begin training our models, we must have a mathematical "Ground Truth."
 | Parameter | Rule/Decision | Justification |
 | :--- | :--- | :--- |
 | **Starting Set ($S_0$)** | Nodes within **20m** of geocode | OSM can have multiple nodes per intersection; $S_0$ prevents "Starting Point" failure. |
-| **Search Radius ($C$)** | $\max(D \times 1.1, D + 80\text{m})$ | Prevents "Search Explosion" at long distances while allowing human vagueness at short ones. |
+| **Distance Error** | $\max(D \times 1.1, D + 80\text{m})$ | Accounts for human over/under-estimation of **path length** ($1.1$ = 10% buffer). |
+| **Landmark Scale** | Area-based + **1.2x** Scale | Defines the **influence zone** (sidewalks/entries) around a POI using Clamped Radius. |
 | **Directional Wedge** | $\text{Target} \pm 45^\circ$ | Accounts for "Fuzzy" human directions (e.g., "North-ish"). |
-| **Landmark Matching** | OSM Tag + **20m** Buffer | A node matches if it has the tag OR is within 20m of a POI with that tag. |
-| **Default Radius** | **500m** | Used when no distance is specified in the instruction. |
+| **Landmark Matching** | OSM Tag + $R_{search}$ | A node matches if it has the required tag AND falls within the landmark's Clamped Radius. |
+| **Default Radius** | **500m** | Fallback search distance used when no distance is specified in the instruction. |
+---
+
+## 📐 Spatial Search: The Clamped Radius Logic
+
+In allocentric navigation, "at the landmark" is a subjective distance that scales with the landmark's physical size. The Oracle uses a **Clamped Radius** to model this human perception.
+
+### 1. Why "Clamped"?
+A simple fixed radius (e.g., always 50m) fails to capture human intent at the extremes:
+* **Small Landmarks (e.g., Mailbox/Pole):** A 50m radius is too loose. The agent could be across the street, and the Oracle would incorrectly mark it as "at the mailbox." These require a tight radius ($r \approx 15\text{m}$).
+* **Large Landmarks (e.g., Bryant Park/Hospital):** A 50m radius measured from a center point might not even reach the sidewalk. Humans consider themselves "at" the park the moment they hit the perimeter. These require a wide radius ($r > 100\text{m}$).
 
 
+
+### 2. The Formula
+To balance precision (not grabbing too many nodes) and recall (not missing the landmark), the search radius ($R_{search}$) is calculated as:
+
+$$R_{search} = \min\left(\max\left(R_{min}, \sqrt{\frac{\text{Area}}{\pi}} \cdot \text{Scale}\right), R_{max}\right)$$
+
+* **Scaling:** We multiply the physical footprint by a `RADIUS_SCALE_FACTOR` (default 1.2x) to account for the "influence zone" (the sidewalk/street immediately adjacent).
+* **Lower Bound ($R_{min}$):** Prevents the search area from disappearing for point-nodes (e.g., "at the lamp post").
+* **Upper Bound ($R_{max}$):** Prevents massive landmarks from "swallowing" the graph and creating false positives in our candidate set $S$.
+
+### 3. Usage
+This logic is used during **Landmark Matching** to determine if a graph node qualifies as being "at" a specific POI. If the distance from Node $N$ to POI $P$ is $\le R_{search}$, the node is added to the candidate pool.
 
 ---
 
