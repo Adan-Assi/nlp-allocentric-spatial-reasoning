@@ -7,3 +7,5 @@ pyarrow
 fastparquet
 scikit-learn
 tqdm
+geopy>=2.4.0
+datasets>=3.0.0
