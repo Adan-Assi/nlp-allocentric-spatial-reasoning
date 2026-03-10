@@ -34,44 +34,53 @@ STATE_CONTRADICTORY = "Contradictory"
 
 # --- OSM Metadata Mapping ---
 # Maps keywords from instructions to specific columns and values in manhattan_poi.pkl
-LANDMARK_GROUPS = {
-    'cafe':       {'column': 'amenity', 'value': 'cafe'},
-    'coffee':     {'column': 'amenity', 'value': 'cafe'},
-    'library':    {'column': 'amenity', 'value': 'library'},
-    'museum':     {'column': 'tourism', 'value': 'museum'},
-    'park':       {'column': 'leisure', 'value': 'park'},
-    'fountain':   {'column': 'fountain', 'value': 'yes'}, # Based on our 'fountain' col
-    'subway':     {'column': 'railway', 'value': 'station'},
-    'station':    {'column': 'railway', 'value': 'station'},
-    'hotel':      {'column': 'tourism', 'value': 'hotel'},
-    'restaurant': {'column': 'amenity', 'value': 'restaurant'},
-    'theatre':    {'column': 'amenity', 'value': 'theatre'},
-    'pharmacy':   {'column': 'amenity', 'value': 'pharmacy'}
-}
+#LANDMARK_GROUPS = {
+#    'cafe':       {'column': 'amenity', 'value': 'cafe'},
+#    'coffee':     {'column': 'amenity', 'value': 'cafe'},
+#    'library':    {'column': 'amenity', 'value': 'library'},
+#    'museum':     {'column': 'tourism', 'value': 'museum'},
+#    'park':       {'column': 'leisure', 'value': 'park'},
+#    'fountain':   {'column': 'fountain', 'value': 'yes'}, # Based on our 'fountain' col
+#    'subway':     {'column': 'railway', 'value': 'station'},
+#    'station':    {'column': 'railway', 'value': 'station'},
+#    'hotel':      {'column': 'tourism', 'value': 'hotel'},
+#    'restaurant': {'column': 'amenity', 'value': 'restaurant'},
+#    'theatre':    {'column': 'amenity', 'value': 'theatre'},
+#    'pharmacy':   {'column': 'amenity', 'value': 'pharmacy'}
+#}
 
 # --- OSM Metadata Mapping (Updated for Task 2.5) ---
 # Maps keywords from instructions to specific columns and values in manhattan_poi.pkl
 LANDMARK_GROUPS = {
-    # Existing mappings
-    'cafe':       {'column': 'amenity', 'value': 'cafe'},
-    'coffee':     {'column': 'amenity', 'value': 'cafe'},
-    'library':    {'column': 'amenity', 'value': 'library'},
-    'museum':     {'column': 'tourism', 'value': 'museum'},
-    'park':       {'column': 'leisure', 'value': 'park'},
-    'fountain':   {'column': 'fountain', 'value': 'yes'},
-    'subway':     {'column': 'railway', 'value': 'station'},
-    'station':    {'column': 'railway', 'value': 'station'},
-    'hotel':      {'column': 'tourism', 'value': 'hotel'},
-    'restaurant': {'column': 'amenity', 'value': 'restaurant'},
-    'theatre':    {'column': 'amenity', 'value': 'theatre'},
-    'pharmacy':   {'column': 'amenity', 'value': 'pharmacy'},
-    
-    # --- NEW: Discovered Brand/Specific Mappings ---
-    'starbucks':       {'column': 'name', 'value': 'Starbucks'},
-    'chase bank':      {'column': 'name', 'value': 'Chase'},
-    'duane reade':     {'column': 'name', 'value': 'Duane Reade'},
-    'cvs':             {'column': 'name', 'value': 'CVS'},
-    'citi bike':       {'column': 'amenity', 'value': 'bicycle_rental'}
+    # --- Amenities & Services ---
+    'bicycle parking':      {'column': 'amenity',  'value': 'bicycle_parking'},
+    'bike parking':         {'column': 'amenity',  'value': 'bicycle_parking'},
+    'bicycle rental':       {'column': 'amenity',  'value': 'bicycle_rental'},
+    'fast food restaurant': {'column': 'amenity',  'value': 'fast_food'},
+    'post office':          {'column': 'amenity',  'value': 'post_office'},
+    'drinking water':       {'column': 'amenity',  'value': 'drinking_water'},
+    'parking entrance':     {'column': 'amenity',  'value': 'parking_entrance'},
+
+    # --- Brands (Mapped to 'name') ---
+    'duane reade pharmacy': {'column': 'name',     'value': 'Duane Reade'},
+    'chase bank':           {'column': 'name',     'value': 'Chase'},
+
+    # --- Shops ---
+    'clothes shop':         {'column': 'shop',     'value': 'clothes'},
+    'alcohol shop':         {'column': 'shop',     'value': 'alcohol'},
+    'vacant shop':          {'column': 'shop',     'value': 'vacant'},
+    'convenience shop':     {'column': 'shop',     'value': 'convenience'},
+
+    # --- Streets & Corridors ---
+    'lexington avenue':     {'column': 'name',     'value': 'Lexington Avenue'},
+    '14th street':          {'column': 'name',     'value': '14th Street'},
+    '34th street':          {'column': 'name',     'value': '34th Street'},
+    'canal street':         {'column': 'name',     'value': 'Canal Street'},
+
+    # --- Historic & Landmarks ---
+    'historic memorial':    {'column': 'historic', 'value': 'memorial'},
+    'historic district':    {'column': 'historic', 'value': 'district'},
+    'historic building':    {'column': 'historic', 'value': 'building'}
 }
 
 # Standard tags for broad fallback searches
