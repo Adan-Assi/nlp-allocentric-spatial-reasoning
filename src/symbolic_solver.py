@@ -135,3 +135,14 @@ class SymbolicSolver:
 
         # 3. Compute the path
         return self.compute_shortest_path(current_node, target_node)
+
+    def get_search_limit(self, intended_distance: float) -> float:
+        """
+        Task 2.2: Implement the 'Human Error' Search Radius logic.
+        Formula: max(D * 1.1, D + 80m)
+        """
+        # We use the constants from Phase 1 of our config
+        buffer_percent = intended_distance * config.DISTANCE_SCALE_FACTOR
+        buffer_fixed = intended_distance + config.DISTANCE_FIXED_BUFFER
+        
+        return max(buffer_percent, buffer_fixed)

@@ -3,9 +3,9 @@
 ## ✅ Phase 1: Synchronization & Configuration (COMPLETED)
 *Goal: Align on constants and eliminate hard-coded values.*
 
-- [x] **Task 1.1: Finalize Review Items**
+- [x] **Task 1.1: Finalize Review Items (COMPLETED)**
     - Done: Implemented standard shortest-path logic and geodesic bearings.
-- [x] **Task 1.2: Centralize Constants (`config.py`)**
+- [x] **Task 1.2: Centralize Constants (`config.py`) (COMPLETED)**
     - Done: Created `config.py` with `POI_NODE_PREFIX` and data paths.
 
 ---
@@ -13,15 +13,15 @@
 ## 🏗️ Phase 2: The Logic Overhaul
 *Goal: Implement the mathematical rules defined in our Oracle Protocol.*
 
-- [x] **Task 2.1: Implement Node Bridge & Graph Loading**
+- [x] **Task 2.1: Implement Node Bridge & Graph Loading (COMPLETED)**
     - Done: Resolved NetworkX 3.0+ `gpickle` issues; successfully loading 74k nodes via `pickle.load`.
-- [x] **Task 2.4: Implement OSM Landmark POI Buffer**
+- [x] **Task 2.4: Implement OSM Landmark POI Buffer (COMPLETED)**
     - Done: Built `OracleEngine` with regex-based fuzzy matching and `osmid` resolution from the 198MB POI pickle.
-- [ ] **Task 2.2: Implement Clamped Radius (PENDING)**
-    - *To do:* Add `get_search_radius(distance)` using the max(D * 1.1, D + 80) logic to the Solver.
-- [ ] **Task 2.3: Implement Vector "Away/Toward" Logic (PENDING)**
-    - *To do:* Write the dot-product filter for relative movement (e.g., "moving away from the park").
-- [ ] **Task 2.5: Data-Driven Landmark Mapping**
+- [x] **Task 2.2: Implement Clamped Radius (COMPLETED)**
+    - Done: Added `get_search_radius(distance)` using the max(D * 1.1, D + 80) logic to the Solver.
+- [x] **Task 2.3: Implement Vector "Away/Toward" Logic (COMPLETED)**
+    - Done: Wrote the dot-product filter for relative movement (e.g., "moving away from the park").
+- [ ] **Task 2.5: Data-Driven Landmark Mapping (PENDING)**
     - Run frequency analysis on RVS instruction nouns to identify top landmarks.
     - Map top-frequency spatial nouns to OSM tags in `config.py`(e.g., "deli", "church").
     - Ensure 90% of landmark-based instructions have a corresponding mapping.

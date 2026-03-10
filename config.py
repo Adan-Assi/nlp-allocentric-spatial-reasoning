@@ -5,8 +5,8 @@ Ref: docs/DATA_GUIDE.md
 """
 
 # --- Phase 1: Search & Radius Constants ---
-DISTANCE_MULTIPLIER = 1.1 
-FIXED_DISTANCE_BUFFER = 80 
+DISTANCE_SCALE_FACTOR = 1.1 
+DISTANCE_FIXED_BUFFER = 80 
 DEFAULT_SEARCH_RADIUS = 500 
 
 # --- Phase 2: Starting Location (S0) ---
@@ -15,9 +15,15 @@ S0_BUFFER_METERS = 20
 # --- Phase 3: Directional & Vector Logic ---
 DIRECTIONAL_WEDGE_DEGREES = 45  
 
-# --- Phase 4: Landmark Grounding & Graph Linking ---
-# Distance from a street node to a POI to consider it a "match"
-LANDMARK_PROXIMITY_BUFFER = 20  
+# --- Phase 4: Landmark Grounding (Clamped Radius) ---
+# The influence zone scaling: 1.2 means 20% larger than the physical footprint
+RADIUS_SCALE_FACTOR = 1.2 
+# Bounds to prevent search areas from being too small (points) or too large (parks)
+RADIUS_MIN = 15.0  
+RADIUS_MAX = 150.0 
+# Fallback radius if area data is missing for a landmark in manhattan_poi.pkl
+DEFAULT_LANDMARK_BUFFER = 50.0
+
 # The prefix found in manhattan_graph.gpickle for projected POI nodes
 POI_NODE_PREFIX = "1#" 
 

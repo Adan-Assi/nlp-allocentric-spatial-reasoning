@@ -50,6 +50,7 @@ Access the full project specifications and research strategy below:
 ### 🗃️ Data & Implementation
 * [**Data & Graph Guide**](docs/DATA_GUIDE.md) — *The "Reference."* Detailed breakdown of the 74k-node Manhattan graph, POI pickle structure, and node ID prefixing (`1#`).
 * [**Task Tracker (TASKS.md)**](docs/TASKS.md) — *The "Roadmap."* Current sprint progress, pending logic implementations, and team assignments.
+* [**Dataset Specification**](docs/DATASET_SPEC.md) — *The "Ground Truth."* Breakdown of the RVS JSON files, instruction schemas, and city splits.
 
 ---
 
