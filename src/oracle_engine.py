@@ -4,7 +4,17 @@ import networkx as nx
 import config
 import src.utils as utils
 import re
+import sys # Added for path mapping
 from typing import Tuple
+from geopy.distance import geodesic
+
+# --- PANDAS 2.0 COMPATIBILITY PATCH ---
+# This fixes the 'ModuleNotFoundError' and 'AttributeError' for older .pkl files
+import pandas.core.indexes.base
+if not hasattr(pandas.core.indexes, 'numeric'):
+    sys.modules['pandas.core.indexes.numeric'] = pandas.core.indexes.base
+pandas.core.indexes.base.Int64Index = pd.Index
+# --------------------------------------
 
 class OracleEngine:
     def __init__(self, graph_path_or_obj, poi_path_or_df):
@@ -161,3 +171,168 @@ class OracleEngine:
                 best_node = node_id
         
         return best_node, min_dist
+    
+    
+    def resolve_by_tags_old(self, current_node_id: str, tags: dict, landmark_name: str = "") -> str:
+        """
+        Task 3.1 Optimized: Semantic-aware resolution.
+        Balances tag categories with name-based keyword verification.
+        """
+        curr_node_data = self.G.nodes[current_node_id]
+        curr_x, curr_y = curr_node_data['x'], curr_node_data['y']
+
+        # 1. Broad Filter by Tags (The Category)
+        filtered_df = self.poi_df.copy()
+        for key, value in tags.items():
+            if key in filtered_df.columns:
+                if isinstance(value, list):
+                    filtered_df = filtered_df[filtered_df[key].isin(value)]
+                else:
+                    filtered_df = filtered_df[filtered_df[key] == value]
+
+        if filtered_df.empty:
+            return None
+
+        # 2. Distance Calculation (Spatial Score)
+        # We normalize distance so closer = higher score (0 to 1 range)
+        dist = ((filtered_df.geometry.x - curr_x)**2 + (filtered_df.geometry.y - curr_y)**2)**0.5
+        spatial_score = 1 / (1 + dist * 1000) # Simple inverse decay
+
+        # 3. Enhanced Semantic Score (Deep Search)
+        semantic_score = 0
+        if landmark_name:
+            query = landmark_name.lower()
+            
+            # Layer A: Direct Name Match (+2.0 points)
+            name_match = filtered_df['name'].str.lower().str.contains(query, na=False)
+            
+            # Layer B: Tag-Value Match (+1.5 points)
+            # Check if our query exists inside the values of the columns (like 'cuisine' or 'office')
+            # This catches "dim_sum" in the cuisine column even if not in the name.
+            tag_match = filtered_df.apply(
+                lambda row: any(query in str(val).lower() for val in row.values), axis=1
+            )
+            
+            # Combine them: Name matches are strongest, Tag matches are second strongest
+            semantic_score = (name_match.astype(float) * 2.0) + (tag_match.astype(float) * 1.5)
+
+        # 4. Final Ranking
+        # Combined score ensures a slightly further 'Church' beats a closer 'Synagogue'
+        filtered_df['final_score'] = spatial_score + semantic_score
+        
+        nearest_idx = filtered_df['final_score'].idxmax()
+        
+        # 5. ID Construction
+        raw_osmid = str(filtered_df.loc[nearest_idx, 'osmid']).replace('#', '')
+        return f"{self.prefix}{raw_osmid}"
+    
+    
+    def resolve_by_tags(self, current_node_id: str, tags: dict, landmark_name: str = "") -> str:
+        curr_node_data = self.G.nodes[current_node_id]
+        curr_x, curr_y = curr_node_data['x'], curr_node_data['y']
+
+        # 1. Initial Category Filter (e.g., 'amenity': 'restaurant')
+        filtered_df = self.poi_df.copy()
+        for key, value in tags.items():
+            if key in filtered_df.columns:
+                filtered_df = filtered_df[filtered_df[key] == value] if not isinstance(value, list) else filtered_df[filtered_df[key].isin(value)]
+
+        if filtered_df.empty: return None
+
+        # 2. Distance Score
+        poi_centroids = filtered_df.geometry.centroid
+        dist = ((poi_centroids.x - curr_x)**2 + (poi_centroids.y - curr_y)**2)**0.5
+        spatial_score = 1 / (1 + dist * 1000)
+
+        # 3. Deep Semantic Intent Search
+        semantic_score = 0
+        if landmark_name:
+            query = landmark_name.lower().replace(" ", "_") # Handle "dim sum" -> "dim_sum"
+            
+            # Check the 'name' first (High priority: 2.0)
+            name_hit = filtered_df['name'].str.lower().str.contains(query.replace("_", " "), na=False)
+            
+            # Check ALL other columns for the intent (Medium priority: 1.5)
+            # This catches things in 'cuisine', 'shop', or 'description'
+            tag_hit = filtered_df.apply(lambda row: any(query in str(val).lower() for val in row.values), axis=1)
+            
+            semantic_score = (name_hit.astype(float) * 2.0) + (tag_hit.astype(float) * 1.5)
+
+        # 4. Final Rank
+        filtered_df['final_score'] = spatial_score + semantic_score
+        nearest_idx = filtered_df['final_score'].idxmax()
+        
+        raw_osmid = str(filtered_df.loc[nearest_idx, 'osmid']).replace('#', '')
+        return f"{self.prefix}{raw_osmid}"
+
+    
+    def resolve_all_candidates(self, tags: dict, landmark_name: str = "", score_threshold: float = 0.5) -> list:
+        """
+        Diagnostic Method: Finds ALL possible landmarks matching the constraints.
+        Essential for labeling 'Ambiguous' instructions in the 1B Stress Test.
+        """
+        # 1. Category Filter (Same as resolve_by_tags)
+        filtered_df = self.poi_df.copy()
+        for key, value in tags.items():
+            if key in filtered_df.columns:
+                if isinstance(value, list):
+                    filtered_df = filtered_df[filtered_df[key].isin(value)]
+                else:
+                    filtered_df = filtered_df[filtered_df[key] == value]
+
+        if filtered_df.empty:
+            return []
+
+        # 2. Score calculation (No current_node_id needed here to keep it broad)
+        semantic_scores = []
+        if landmark_name:
+            query = landmark_name.lower().replace(" ", "_")
+            
+            # Name match (2.0) and Tag match (1.5)
+            name_hits = filtered_df['name'].str.lower().str.contains(query.replace("_", " "), na=False)
+            tag_hits = filtered_df.apply(lambda row: any(query in str(val).lower() for val in row.values), axis=1)
+            
+            filtered_df['semantic_score'] = (name_hits.astype(float) * 2.0) + (tag_hits.astype(float) * 1.5)
+        else:
+            filtered_df['semantic_score'] = 1.0 # Default if no name provided
+
+        # 3. Filter by Threshold instead of picking Max
+        # This allows us to find multiple "Church" candidates on the same street
+        candidates_df = filtered_df[filtered_df['semantic_score'] >= score_threshold]
+        
+        results = []
+        for idx, row in candidates_df.iterrows():
+            raw_osmid = str(row['osmid']).replace('#', '')
+            node_id = f"{self.prefix}{raw_osmid}"
+            if node_id in self.G:
+                results.append({
+                    "node_id": node_id,
+                    "name": row['name'],
+                    "score": row['semantic_score'],
+                    # This is the 'Robust Grounding' logic required for scientific accuracy
+                    # Centroid returns the center for Polygons (Type 2) 
+                    # and the point itself for Points (Type 1).
+                    "coords": (row.geometry.centroid.y, row.geometry.centroid.x)
+                })
+        
+        return results
+    
+    from geopy.distance import geodesic
+
+    def calculate_distance(self, lat1, lon1, lat2, lon2):
+        """Calculates geodesic distance (meters) to match RVS path constraints."""
+        return geodesic((lat1, lon1), (lat2, lon2)).meters
+
+    def resolve_nearby_candidates(self, tags, center_lat, center_lon, radius_m=1500):
+        """
+        Finds all landmarks matching tags within the RVS-standard distance.
+        Uses .centroid to handle 'Type 2' large POIs mentioned in README.
+        """
+        candidates = self.resolve_all_candidates(tags)
+        nearby = []
+        for c in candidates:
+            # README link: Using centroid for polygons/areas
+            dist = self.calculate_distance(center_lat, center_lon, c['coords'][0], c['coords'][1])
+            if dist <= radius_m:
+                nearby.append(c)
+        return nearby
