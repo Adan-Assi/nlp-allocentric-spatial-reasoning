@@ -4,6 +4,13 @@ This directory contains the theoretical grounding, empirical justifications, and
 
 ---
 
+## 📍 Quick Start & High-Level Overview
+* **[`NORTH_STAR_GUIDE.md`](./NORTH_STAR_GUIDE.md)** 
+    * **READ THIS FIRST.** The "North Star" for the project.  
+    * *Purpose:* Explains the **Research Question**, the **Identity Resolution vs. Geometric Reasoning** distinction, and why we evaluate LLMs against the **Oracle Truth** rather than the original human goal.
+
+---
+
 ## 🔬 Core Research & Theory
 * **[`Literature_Review_and_Theoretical_Framework.md`](./Literature_Review_and_Theoretical_Framework.md)**
     * *Purpose:* Synthesizes **RVS**, **StepGame**, and **Li et al.** findings. 

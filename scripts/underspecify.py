@@ -1,3 +1,4 @@
+import config
 import json
 import re
 import os
@@ -12,21 +13,35 @@ def generate_variants(sample):
     landmarks = sample['landmarks']
     variants = []
 
-    # 1. Landmark Masking Logic
+    # 1. Landmark Masking Logic (Improved)
     landmark_masked_text = original_text
     applied_landmark_mask = False
     
-    for p_type, p_name in landmarks.items():
-        if p_name and p_name != "None" and p_name in original_text:
-            # We track a specific mask for individual variants
-            single_mask = original_text.replace(p_name, "[MASK]")
+    # Extract ALL unique landmark strings from the sample
+    # This grabs "church", "garden", "3 World Trade Center", etc.
+    all_landmark_names = set()
+    for val in sample.get('landmarks', {}).values():
+        if isinstance(val, list) and len(val) > 1:
+            all_landmark_names.add(str(val[1]))
+        elif isinstance(val, str):
+            all_landmark_names.add(val)
+
+    # Sort landmarks by length, longest first, to avoid partial masking
+    sorted_landmarks = sorted(list(all_landmark_names), key=len, reverse=True)
+
+    for p_name in sorted_landmarks:
+        if p_name and p_name != "None" and p_name.lower() in original_text.lower():
+            # Use regex for case-insensitive replacement to catch "Church" vs "church"
+            pattern = re.compile(re.escape(p_name), re.IGNORECASE)
+            single_mask = pattern.sub("[MASK]", original_text)
+            
             variants.append({
-                "type": f"mask_{p_type}",
+                "type": "mask_landmark",
                 "text": single_mask,
                 "removed_element": p_name
             })
-            # We also update the 'cumulative' mask for Hard Mode
-            landmark_masked_text = landmark_masked_text.replace(p_name, "[MASK]")
+            
+            landmark_masked_text = pattern.sub("[MASK]", landmark_masked_text)
             applied_landmark_mask = True
 
     # 2. Directional Masking Logic
@@ -54,25 +69,49 @@ def generate_variants(sample):
     return variants
 
 if __name__ == "__main__":
-    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-    JSON_PATH = os.path.join(BASE_DIR, "..", "data", "manhattan", "manhattan.json")
-    GRAPH_PATH = os.path.join(BASE_DIR, "..", "data", "manhattan", "manhattan_graph.gpickle")
-    OUTPUT_PATH = os.path.join(BASE_DIR, "..", "data", "manhattan", "underspecified_variants.json")
+    # We use the keys from CITY_SETTINGS: ['manhattan', 'pittsburgh', 'philadelphia']
+    cities_to_process = list(config.CITY_SETTINGS.keys())
 
-    data = load_rvs_accurate(JSON_PATH, GRAPH_PATH)
-    all_experiments = []
+    for city in cities_to_process:
+        print(f"\n🏙️  Processing: {city.upper()}")
+        
+        # Set global context so config getters work correctly
+        config.CURRENT_CITY = city
+        
+        # Resolve Paths using config settings
+        city_dir = os.path.join(config.BASE_DIR, "data", city)
+        input_json = os.path.join(city_dir, config.CITY_SETTINGS[city]["raw_json"])
+        graph_path = config.get_graph_path()
+        output_json = os.path.join(city_dir, "underspecified_variants.json")
 
-    print("Generating variants (including Hard Mode)...")
-    for sample in data[:500]:
-        sample_variants = generate_variants(sample)
-        all_experiments.append({
-            "sample_id": sample['sample_number'],
-            "original_text": sample['instruction'],
-            "goal_node": sample['goal_point'],
-            "variants": sample_variants
-        })
+        if not os.path.exists(input_json):
+            print(f"❌ Error: {input_json} not found. Skipping...")
+            continue
 
-    with open(OUTPUT_PATH, 'w') as f:
-        json.dump(all_experiments, f, indent=4)
-    
-    print(f"Success! Generated variants for {len(all_experiments)} samples.")
+        # Load data using our specialized RVS parser
+        print(f"📂 Loading {city} data...")
+        data = load_rvs_accurate(input_json, graph_path)
+        
+        all_experiments = []
+
+        print(f"🎭 Generating variants for {len(data)} samples...")
+        for sample in data:
+            sample_variants = generate_variants(sample)
+            
+            # Store everything needed for the Oracle later
+            all_experiments.append({
+                "sample_id": sample.get('sample_number', 'N/A'),
+                "city": city,
+                "original_text": sample['instruction'],
+                "rvs_start_point": sample['start_point'],
+                "rvs_goal_point": sample['goal_point'],
+                "variants": sample_variants
+            })
+
+        # Save city-specific variants
+        with open(output_json, 'w') as f:
+            json.dump(all_experiments, f, indent=4)
+        
+        print(f"✅ Saved {city.upper()} variants to {output_json}")
+
+    print("\n🚀 All cities successfully underspecified!")

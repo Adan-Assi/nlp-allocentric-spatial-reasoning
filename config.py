@@ -11,10 +11,61 @@ import os
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # Data Paths (Updated for our 1B stress test)
-GRAPH_PATH = os.path.join(BASE_DIR, "data", "manhattan", "manhattan_graph.gpickle")
-POI_PATH = os.path.join(BASE_DIR, "data", "manhattan", "manhattan_poi.pkl")
-VARIANTS_JSON = os.path.join(BASE_DIR, "data", "manhattan", "underspecified_variants.json")
-RVS_DATA_JSON = os.path.join(BASE_DIR, "data", "manhattan", "manhattan.json")
+#GRAPH_PATH = os.path.join(BASE_DIR, "data", "manhattan", "manhattan_graph.gpickle")
+#POI_PATH = os.path.join(BASE_DIR, "data", "manhattan", "manhattan_poi.pkl")
+#VARIANTS_JSON = os.path.join(BASE_DIR, "data", "manhattan", "underspecified_variants.json")
+#RVS_DATA_JSON = os.path.join(BASE_DIR, "data", "manhattan", "manhattan.json")
+
+# --- Dynamic Path Resolution ---
+# Replace the previously hardcoded GRAPH_PATH/POI_PATH with dynamic getters:
+
+CURRENT_CITY = "manhattan" # Default
+
+# --- Multi-City Settings ---
+CITY_SETTINGS = {
+    "manhattan": {
+        "success_radius": 80,
+        "raw_json": "manhattan.json", 
+        "graph_file": "manhattan_graph.gpickle",
+        "poi_file": "manhattan_poi.pkl",
+        "node_prefix": "1#",
+        "geo_col": "centroid"
+    },
+    "pittsburgh": {
+        "success_radius": 100,
+        "raw_json": "pittsburgh.json",
+        "graph_file": "pittsburgh_graph.gpickle",
+        "poi_file": "pittsburgh_poi.pkl",
+        "node_prefix": "1#",
+        "geo_col": "centroid"
+    },
+    "philadelphia": {
+        "success_radius": 250,  # Matches the RVS "Coarse" baseline for Philly
+        "raw_json": "philadelphia.json",
+        "graph_file": "philadelphia_graph.gpickle",
+        "poi_file": "philadelphia_poi.pkl",
+        "node_prefix": "1#",
+        "geo_col": "centroid"
+    }
+}
+
+def get_graph_path():
+    """Dynamically builds the path to the graph file based on current city."""
+    city_data = CITY_SETTINGS.get(CURRENT_CITY)
+    return os.path.join(BASE_DIR, "data", CURRENT_CITY, city_data["graph_file"])
+
+def get_poi_path():
+    """Dynamically builds the path to the POI file based on current city."""
+    city_data = CITY_SETTINGS.get(CURRENT_CITY)
+    return os.path.join(BASE_DIR, "data", CURRENT_CITY, city_data["poi_file"])
+
+def get_success_radius():
+    """Returns the city-specific bibliographic success radius."""
+    return CITY_SETTINGS.get(CURRENT_CITY)["success_radius"]
+
+def get_node_prefix():
+    """Returns the city-specific node prefix for POI nodes."""
+    return CITY_SETTINGS.get(CURRENT_CITY)["node_prefix"]
 
 # Output Reports
 AMBIGUITY_REPORT_CSV = os.path.join(BASE_DIR, "data", "manhattan", "ambiguity_report.csv")
@@ -35,7 +86,8 @@ S0_BUFFER_METERS = 20
 USE_SCC_OPTIMIZATION = True
 
 # --- Phase 3: Directional & Vector Logic ---
-DIRECTIONAL_WEDGE_DEGREES = 45  
+# DIRECTIONAL_WEDGE_DEGREES = 45
+DIRECTIONAL_WEDGE_DEGREES = 90 # Testing expanded wedge for better recall in ambiguous cases
 
 # --- Phase 4: Landmark Grounding (Clamped Radius) ---
 # The influence zone scaling: 1.2 means 20% larger than the physical footprint
@@ -55,55 +107,52 @@ STATE_ANSWERABLE = "Answerable"
 STATE_AMBIGUOUS = "Ambiguous"
 STATE_CONTRADICTORY = "Contradictory"
 
-
-# --- Multi-City Settings ---
-CITY_SETTINGS = {
-    "manhattan": {
-        "success_radius": 80,
-        "raw_json": "manhattan.json", 
-        "graph_file": "manhattan_graph.gpickle",
-        "poi_file": "manhattan_poi.pkl"
-    },
-    "pittsburgh": {
-        "success_radius": 100,
-        "raw_json": "pittsburgh.json",
-        "graph_file": "pittsburgh_graph.gpickle",
-        "poi_file": "pittsburgh_poi.pkl"
-    },
-    "philadelphia": {
-        "success_radius": 100,
-        "raw_json": "philadelphia.json",
-        "graph_file": "philadelphia_graph.gpickle",
-        "poi_file": "philadelphia_poi.pkl"
-    }
-}
+# --- Geographic & Spatial Pruning Constants ---
+# Roughly 111km per degree of latitude. 
+# Used for fast bounding-box pre-filtering (S2 approximation).
+METERS_PER_DEGREE_LATITUDE = 111000.0
 
 # --- OSM Metadata Mapping ---
 # Maps keywords from instructions to specific columns and values in manhattan_poi.pkl
 # Task 2.5 Final Mapping - based on coverarge results
 LANDMARK_GROUPS = {
     "CHURCH": {"amenity": ["place_of_worship", "monastery"]},
-    "RESTAURANT": {"amenity": ["restaurant", "fast_food", "food_court"]},
-    "SHOP": {"shop": ["yes", "supermarket", "convenience", "clothes", "mall"]},
+    "RESTAURANT": {"amenity": ["restaurant", "fast_food", "food_court"], "brand": "yes"},
+    "SHOP": {"shop": ["yes", "supermarket", "convenience", "clothes", "mall"], "brand": "yes"},
     "PARK": {"leisure": ["park", "recreation_ground"], "boundary": "park"},
     "GARDEN": {"leisure": "garden"},
     "THEATRE": {"amenity": ["theatre", "arts_centre"]},
     "STREET": {"highway": ["residential", "tertiary", "secondary", "unclassified"]},
     "AVENUE": {"highway": ["primary", "secondary"]}, 
     "BICYCLE": {"amenity": ["bicycle_parking", "bicycle_rental"]},
-    "PHARMACY": {"amenity": "pharmacy"},
-    "BANK": {"amenity": "bank"},
-    "CAFE": {"amenity": "cafe"},
-    "PARKING": {"amenity": "parking"},
-    "MUSEUM": {"tourism": "museum", "historic": "museum"},
+    "PHARMACY": {"amenity": "pharmacy", "brand": "yes"},
+    "BANK": {"amenity": "bank", "brand": "yes"},
+    "CAFE": {"amenity": "cafe", "brand": "yes"},
+    "PARKING": {"amenity": ["parking", "bicycle_parking", "motorcycle_parking"]},
+    "MUSEUM": {"tourism": "museum", "historic": ["museum", "yes"]}, # Expanded historic tag for better coverage
     "WATER": {"natural": "water", "waterway": "river"},
     "BENCH": {"amenity": "bench"},
 
-    # --- NEW: Mapping the "Hit List" Misses ---
-    "FOOD": {"amenity": ["restaurant", "food_court", "cafe"]}, # Freq: 540
-    "BIKE": {"amenity": ["bicycle_parking", "bicycle_rental"]}, # Freq: 467
+    # --- NEW: Mapping the "Hit List" & RVS Metadata ---
+    "FOOD": {"amenity": ["restaurant", "food_court", "cafe"], "brand": "yes"}, # Freq: 540
+    "BIKE": {
+        "amenity": ["bicycle_parking", "bicycle_rental"], # Matches Citi Bike
+        "shop": ["bicycle", "yes"],                       # Matches Franks / Retail
+        "brand": "yes"
+    },# Freq: 467
     "RENTAL": {"amenity": ["bicycle_rental", "car_rental"]}, # Freq: 398
-    "BUILDING": {"building": "yes"}, # Freq: 377
+
+    # Updated BUILDING group with RVS material/roof metadata (Freq: 377)
+    "BUILDING": {
+        "building": "yes", 
+        "building:material": "yes", 
+        "roof:shape": "yes", 
+        "roof:material": "yes",
+        "colour": "yes",            # <--- Added
+        "building:colour": "yes",   # <--- Added
+        "roof:colour": "yes"        # <--- Added
+    },
+
     "BROADWAY": {"highway": "primary", "name": "Broadway"}, # Freq: 373
     "POST": {"amenity": "post_office"}, # Freq: 346
     "BAR": {"amenity": ["bar", "pub"]}, # Freq: 338
@@ -113,6 +162,16 @@ LANDMARK_GROUPS = {
     "STORE": {"shop": "yes"}, # Freq: 297
     "OFFICE": {"office": "yes"}, # Freq: 290
     "HOTEL": {"tourism": ["hotel", "hostel", "motel", "guest_house"]}, # Frequency fix: 660
+
+    # Common typos found in our audit
+    "ENTRANCE": {"amenity": ["subway_entrance", "entrance"], "railway": "subway_entrance"},
+
+    # Consolidate ambiguous terms
+    "CLOTHES": {"shop": ["clothes", "fashion", "boutique"], "brand": "yes"},
+    "STORE": {"shop": ["yes", "convenience", "supermarket", "clothes"], "brand": "yes"},
+
+    "MONUMENT": {"historic": ["monument", "memorial"], "tourism": "artwork"},
+    "MARKET": {"amenity": "marketplace", "shop": "market"}
 }
 
 # Use these words to trigger the OSM tag searches in LANDMARK_GROUPS
@@ -125,11 +184,48 @@ TEXT_TO_GROUP_MAP = {
     "college": "SCHOOL", "university": "SCHOOL", "campus": "SCHOOL",
     "playground": "PARK", "recreation": "PARK",
     "bench": "BENCH", "seat": "BENCH",
-    "pier": "STATION", "dock": "STATION", "terminal": "STATION"
+    "pier": "STATION", "dock": "STATION", "terminal": "STATION",
+    "post office": "POST",
+    "post-office": "POST",
+    "mailbox": "POST",
+    "coffee": "CAFE",
+    "coffee shop": "CAFE",
+    "clothing": "CLOTHES",
+    "deli": "STORE", # Cross-referencing your STORE group
+    "pizza": "FOOD",
+    "restaurant": "RESTAURANT",
+    "burger": "FOOD",
+    "hospital": "SCHOOL", # Often shared tags in OSM
+    "doctor": "OFFICE",
+    "dentist": "OFFICE",
+    "gallery": "MUSEUM",
+    "monument": "MONUMENT",
+    "memorial": "MONUMENT",
+    "marketplace": "MARKET",
+    "market": "MARKET",
+    "bicycle parking": "BICYCLE",
+    "starbucks": "CAFE",
+    "dunkin": "CAFE",
+    "peet's": "CAFE",
+    "ben & jerry's": "SHOP",
+    "ice cream": "SHOP",
+    "creamery": "SHOP",
+    "american eagle": "CLOTHES",
+    "outfitters": "SHOP",
+    "7-eleven": "SHOP",
+    "wawa": "SHOP",
+    "target": "STORE",
+    "walmart": "STORE",
+    "mcdonald's": "RESTAURANT",
+    "burger king": "RESTAURANT"
 }
 
 # Standard tags for broad fallback searches
-POI_SEARCH_COLUMNS = ['amenity', 'tourism', 'leisure', 'shop', 'historic', 'name']
+# Updated to include all critical RVS-identified OSM keys
+POI_SEARCH_COLUMNS = ['amenity', 'tourism', 'leisure', 'shop', 'historic', 
+    'name', 'brand', 'building', 'building:material', 
+    'roof:shape', 'roof:material', 'colour', 'building:colour', 'roof:colour'
+]
 
 # --- Phase 5: Scientific Evaluation Constants ---
 # Use these in our report to show "Methodological Rigor"

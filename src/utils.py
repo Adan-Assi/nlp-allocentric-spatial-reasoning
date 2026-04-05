@@ -62,25 +62,29 @@ def is_within_buffer(G, agent_node, landmark_coords, radius):
     Checks if agent node is within a specific radius of landmark coordinates.
     Now used with get_clamped_radius for dynamic 'At/Near' logic.
     """
+    if radius is None:
+        radius = config.SUCCESS_RADIUS # Fallback to global default if not provided
+
     agent_coords = get_node_coords(G, agent_node)
     dist = get_geodesic_dist_raw(agent_coords[0], agent_coords[1], landmark_coords[0], landmark_coords[1])
     return dist <= radius
 
 # --- DIRECTIONAL & BEARING UTILITIES ---
 
-def get_dominant_direction(lat1: float, lon1: float, lat2: float, lon2: float) -> str:
-    """
-    Calculates N, S, E, or W based on which axis has the larger change.
-    Used for global strategy and filtering landmarks (e.g., 'North of the park').
-    """
-    dlat = lat2 - lat1
-    dlon = lon2 - lon1
+def get_dominant_direction(lat1, lon1, lat2, lon2):
+    bearing = calculate_bearing(lat1, lon1, lat2, lon2)
+    half_wedge = config.DIRECTIONAL_WEDGE_DEGREES / 2
     
-    if abs(dlat) >= abs(dlon):
-        return 'N' if dlat > 0 else 'S'
-    else:
-        return 'E' if dlon > 0 else 'W'
-
+    # Check against cardinal axes with the configurable wedge
+    if (360 - half_wedge) <= bearing or bearing < half_wedge: return 'N'
+    if (90 - half_wedge) <= bearing < (90 + half_wedge): return 'E'
+    if (180 - half_wedge) <= bearing < (180 + half_wedge): return 'S'
+    if (270 - half_wedge) <= bearing < (270 + half_wedge): return 'W'
+    
+    # Fallback to the old "largest change" logic if it's in a dead-zone
+    dlat, dlon = lat2 - lat1, lon2 - lon1
+    if abs(dlat) >= abs(dlon): return 'N' if dlat > 0 else 'S'
+    return 'E' if dlon > 0 else 'W'
 
 def calculate_bearing(lat1, lon1, lat2, lon2):
     """Calculates the bearing between two GPS points (0-360 degrees)."""

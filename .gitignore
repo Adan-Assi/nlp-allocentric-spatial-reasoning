@@ -31,3 +31,7 @@ data/**/*.json
 all_discovered_landmarks.csv
 *.html
 .ipynb_checkpoints/
+
+# Ignore any large CSVs or Parquet files in the data directory (e.g., raw data dumps)
+data/manhattan/*.csv
+*.parquet

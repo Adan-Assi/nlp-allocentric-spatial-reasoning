@@ -29,25 +29,37 @@
     - Created `scripts/batch_labeling.py` with KD-Tree optimization (~120 it/s).
     - Generated `manhattan_silver_standard.parquet` (6,998 answerable samples).
 
-## 🌍 Phase 4: Multi-City Expansion (NEXT STEPS)
+## 🌍 Phase 4: Multi-City Expansion (IN PROGRESS)
 *Goal: Generalize the Oracle to the full RVS dataset (Pittsburgh & Philadelphia).*
 
-- [ ] **Task 4.1: Multi-City Asset Acquisition**
-    - Use `osmnx` to download and build `.graphml` and POI `.pkl` files for Pittsburgh (Unseen-Dev) and Philadelphia (Test).
+- [x] **Task 4.1: Multi-City Asset Ingestion & Validation**
+    - Import `pittsburgh_graph.gpickle` and `philadelphia_graph.gpickle` from RVS Drive.
+    - Run compatibility checks to ensure `pickle.load` works across NetworkX versions.
 - [ ] **Task 4.2: City-Agnostic Solver Refactor**
-    - Update `batch_labeling.py` to dynamically load the correct graph/POI index based on the city identified in the RVS JSON.
+    - Update `batch_labeling.py` to dynamically load the correct graph/POI index and apply city-specific success radii (80m for MHT, 100m for PIT/PHL).
 - [ ] **Task 4.3: Generate Full Silver Standard**
-    - Run labeling pipeline for all RVS splits to create a complete training/testing corpus.
+    - [ ] **Task 4.3.1: Slurm Job Configuration (`scripts/submit_labeling.sh`)**
+        - *Note: Use Slurm here to run MHT, PIT, and PHL in parallel to save time.*
+    - [ ] **Run labeling pipeline for all RVS splits to create a complete training/testing corpus.**
 
 ## 📉 Phase 5: Evaluation & Degradation
 *Goal: Prove the impact of underspecification and benchmark SOTA models.*
 
 - [ ] **Task 5.1: LLM Benchmarking (`scripts/evaluate_llm.py`)**
-    - Compare GPT-4o/Claude 3.5 spatial predictions against the Symbolic Oracle's "Ground Truth."
+    - ⚠️ **SLURM RECOMMENDED:** Use cluster GPUs for model inference/evaluation (T5-base / Pythia / GPT-4o).
+    - Compare LLM spatial predictions against the Symbolic Oracle's "Ground Truth."
 - [ ] **Task 5.2: The Masking Engine (`mask_instructions.py`)**
     - Implement RVS-style masking (removing landmarks) to test model degradation.
 - [ ] **Task 5.3: Automated Degradation Analysis**
     - Generate plots showing `Answerable` → `Ambiguous` flips as information is removed.
+
+---
+
+### 🚀 Slurm Quick-Reference
+| Task | Why use the Cluster? |
+| :--- | :--- |
+| **4.3 (Labeling)** | Parallelize processing of ~10k examples across 3 cities. |
+| **5.1 (LLM Eval)** | Access high-end GPUs for local model inference (~1B params). |
 
 ---
 
@@ -59,6 +71,6 @@
 
 | Role | Tasks | Primary Goal |
 | :--- | :--- | :--- |
-| **Backend/Geometry Lead** | 4.1, 4.2 | Multi-city graph infrastructure |
+| **Backend/Geometry Lead** | 4.1, 4.2, 4.3.1 | Multi-city infrastructure & Slurm setup |
 | **Data/ML Lead** | 4.3, 5.1 | Full dataset generation & LLM Eval |
 | **NLP/Robustness Lead** | 5.2, 5.3 | Masking engine & degradation analysis |

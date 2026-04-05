@@ -4,6 +4,7 @@ from typing import List, Tuple, Optional, Dict
 from collections import deque
 from pathlib import Path
 import heapq
+from matplotlib import category
 import networkx as nx
 
 # Internal Project Imports
@@ -180,3 +181,56 @@ class SymbolicSolver:
         buffer_fixed = intended_distance + self.search_radius
         
         return max(buffer_percent, buffer_fixed)
+    
+    # --------- PHASE 5: THE MASTER CONTROLLER ---------
+
+    def check_reachability_scc(self, start_node: str, target_node: str) -> bool:
+        """
+        Wrapper for the shared SCC utility. 
+        Verifies if a path exists between two nodes in O(1) time.
+        """
+        return utils.is_reachable_fast(self.scc_lookup, start_node, target_node)
+
+    def solve(self, instruction_text: str, start_node: str) -> dict:
+        """
+        Master Controller: Translates text into a Symbolic State.
+        Uses the 1500m 'Elbow' Horizon and O(1) SCC Reachability.
+        """
+        from src.extraction_utils import extract_rvs_target
+        
+        # 1. Extraction: Get Category + Noun
+        category, raw_noun = extract_rvs_target(instruction_text)
+        tags = config.LANDMARK_GROUPS.get(category, {})
+        
+        # 2. Candidate Resolution (The 1500m Gatekeeper)
+        start_data = self.G.nodes[start_node]
+        candidates = self.oracle.resolve_nearby_candidates(
+            tags, 
+            start_data['y'], 
+            start_data['x'], 
+            radius_m=config.GLOBAL_SEARCH_HORIZON_METERS,
+            landmark_name=raw_noun # Pass the raw noun for better resolution
+        )
+
+        # 3. Label Assignment (The Silver Standard)
+        count = len(candidates)
+        metadata = {
+            "category": category, 
+            "noun": raw_noun, 
+            "candidate_count": count
+        }
+
+        if count == 0:
+            return {**metadata, "state": config.STATE_CONTRADICTORY}
+        
+        if count > 1:
+            # The systematic underspecification has created ambiguity
+            return {**metadata, "state": config.STATE_AMBIGUOUS}
+
+        # 4. Final Verification: Reachability
+        target_node = candidates[0]['node_id']
+        if self.check_reachability_scc(start_node, target_node):
+            return {**metadata, "state": config.STATE_ANSWERABLE, "target_node": target_node}
+        else:
+            # Target exists, but is topologically isolated from the start
+            return {**metadata, "state": config.STATE_CONTRADICTORY}
