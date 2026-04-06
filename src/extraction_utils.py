@@ -42,34 +42,46 @@ class CategoricalMatcher:
 matcher = CategoricalMatcher()
 
 
+
+
+
 def extract_rvs_target(text: str) -> tuple:
     """
+    Unified Extractor (v3): Uses right-most anchor matching to bypass 
+    initial directional instructions (e.g., 'at the west') and isolate 
+    the actual landmark name (e.g., 'at Dunkin'). 
+    
+    Clips the span at spatial boundaries (on, which is, etc.) and 
+    normalizes the result into a (Category, Noun) tuple.
+    
     Unified Extractor: Captures full brand spans, ignores directional fluff, 
     and clips at spatial boundaries (on, at the corner, etc.)
     """
-    # 1. Standardize
+    
+    # 1. Clean
     text_clean = text.replace("’", "'").replace(" ,", ",")
 
-    # 2. Primary Anchor Search
-    anchor_pattern = r"\b(at|me at|is at|to|the)\b\s+(.*)"
-    match = re.search(anchor_pattern, text_clean, re.IGNORECASE)
-    if not match: return "UNKNOWN", "UNKNOWN"
+    # 2. THE FIX: Find the LAST 'at' or 'to' before the landmark
+    # This ignores "at the west" and finds "at Ben & Jerry's"
+    potential_anchors = [m.start() for m in re.finditer(r"\b(at|to|me at|is at)\b", text_clean, re.IGNORECASE)]
     
-    span = match.group(2)
+    if not potential_anchors:
+        return "UNKNOWN", "UNKNOWN"
+    
+    # We take the last anchor found in the sentence
+    start_idx = potential_anchors[-1]
+    # Move the pointer past the anchor word itself (e.g., skip 'at ')
+    span = re.sub(r"^(at|to|me at|is at)\s+", "", text_clean[start_idx:], flags=re.IGNORECASE)
 
-    # 3. Priority Jump (Skip directional fluff)
-    # Jump ONLY if 'at' is followed by a landmark, not a spatial description
-    jump_pattern = r"\bat\b\s+(?!(?:the\s+)?(?:corner|end|middle|side|south|north|west|east))\b(.*)"
-    at_match = re.search(jump_pattern, span, re.IGNORECASE)
-    if at_match:
-        span = at_match.group(1)
-
-    # 4. The Clipping Phase (Added 'at' to stops)
+    # 3. Clipping (No 'at' or 'the' here!)
     stops = [
-        r"\b(?:at|on|near|across|which|is|south|north|west|east|corner|end|middle)\b",
+        # Spatial boundaries
+        r"\b(?:on|near|across|which|is|south|north|west|east|corner|end|middle)\b",
+        # Template boundaries (The "Fluff" Fix)
+        r"\b(?:and|let's|lets|very|place|to|the)\b", 
         r",", r"\."
     ]
-    
+        
     earliest_stop = len(span)
     for stop_pattern in stops:
         s_match = re.search(stop_pattern, span, re.IGNORECASE)
@@ -78,22 +90,12 @@ def extract_rvs_target(text: str) -> tuple:
     
     noun = span[:earliest_stop].strip()
 
-    # 5. POST-EXTRACTION CLEANUP (The "Tail" Fix)
-    # Remove leading/trailing articles and dangling prepositions
+    # 4. Cleanup
     noun = re.sub(r"^(the|a|an)\s+", "", noun, flags=re.IGNORECASE)
-    noun = re.sub(r"\s+(at|the|a|an)$", "", noun, flags=re.IGNORECASE) # Clean the tail
-
-    # 6. Final Category Resolution
+    
+    # 5. Resolve Category
     category = matcher.get_category(noun)
-    if category == "UNKNOWN":
-        for word in noun.lower().split():
-            word_cat = matcher.get_category(word)
-            if word_cat != "UNKNOWN":
-                category = word_cat
-                break
-                
     return category, noun.strip()
-
 
 def normalize_landmark_category(extracted_noun, threshold=80):
     """

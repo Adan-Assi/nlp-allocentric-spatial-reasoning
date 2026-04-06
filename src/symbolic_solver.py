@@ -196,21 +196,36 @@ class SymbolicSolver:
         Master Controller: Translates text into a Symbolic State.
         Uses the 1500m 'Elbow' Horizon and O(1) SCC Reachability.
         """
+
         from src.extraction_utils import extract_rvs_target
         
         # 1. Extraction: Get Category + Noun
         category, raw_noun = extract_rvs_target(instruction_text)
         tags = config.LANDMARK_GROUPS.get(category, {})
         
-        # 2. Candidate Resolution (The 1500m Gatekeeper)
+        # 2. Candidate Resolution (Phase A: Strict Tag Search)
         start_data = self.G.nodes[start_node]
         candidates = self.oracle.resolve_nearby_candidates(
             tags, 
             start_data['y'], 
             start_data['x'], 
             radius_m=config.GLOBAL_SEARCH_HORIZON_METERS,
-            landmark_name=raw_noun # Pass the raw noun for better resolution
+            landmark_name=raw_noun
         )
+
+        # --- NEW: FALLBACK LOGIC ---
+        # If Category search fails, try a fuzzy name search globally in the area
+        if not candidates and raw_noun:
+            fallback_node = self.oracle.resolve_landmark(
+                raw_noun, 
+                context_node=start_node, 
+                radius_m=config.GLOBAL_SEARCH_HORIZON_METERS
+            )
+            if fallback_node:
+                # Wrap it in the candidate format the rest of the function expects
+                node_data = self.G.nodes[fallback_node]
+                candidates = [{"node_id": fallback_node, "coords": (node_data['y'], node_data['x'])}]
+        # ---------------------------
 
         # 3. Label Assignment (The Silver Standard)
         count = len(candidates)
@@ -223,14 +238,27 @@ class SymbolicSolver:
         if count == 0:
             return {**metadata, "state": config.STATE_CONTRADICTORY}
         
+        # 3. Handle Candidate Density (The Salience Filter)
         if count > 1:
-            # The systematic underspecification has created ambiguity
-            return {**metadata, "state": config.STATE_AMBIGUOUS}
+            # Sort candidates by distance
+            sorted_cands = sorted(candidates, key=lambda x: utils.haversine_vectorized(
+                start_data['y'], start_data['x'], x['coords'][0], x['coords'][1]
+            ))
+            
+            d1 = utils.haversine_vectorized(start_data['y'], start_data['x'], sorted_cands[0]['coords'][0], sorted_cands[0]['coords'][1])
+            d2 = utils.haversine_vectorized(start_data['y'], start_data['x'], sorted_cands[1]['coords'][0], sorted_cands[1]['coords'][1])
+
+            # Precedent: Paz-Argaman et al. (2020) "Gold Zone" 
+            # If the closest is within 200m and at least twice as close as the second option
+            if d1 < 200 and d1 < (d2 * 0.5):
+                candidates = [sorted_cands[0]]
+            else:
+                # Still truly ambiguous (e.g., two cafes on the same block)
+                return {**metadata, "state": config.STATE_AMBIGUOUS}
 
         # 4. Final Verification: Reachability
         target_node = candidates[0]['node_id']
         if self.check_reachability_scc(start_node, target_node):
             return {**metadata, "state": config.STATE_ANSWERABLE, "target_node": target_node}
         else:
-            # Target exists, but is topologically isolated from the start
             return {**metadata, "state": config.STATE_CONTRADICTORY}

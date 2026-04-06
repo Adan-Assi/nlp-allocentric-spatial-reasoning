@@ -33,7 +33,7 @@ class OracleEngine:
         else:
             self.poi_df = poi_path_or_df
 
-        self.prefix = config.POI_NODE_PREFIX
+        self.prefix = config.get_node_prefix()
         self._prepare_poi_data()
 
     def _prepare_poi_data(self):
@@ -82,15 +82,12 @@ class OracleEngine:
             return None
 
         # 2. Define Search Area (Bounding Box)
-        # 1500m is roughly 0.0135 degrees
-        deg_buffer = (radius_m / 111000.0) 
+        deg_buffer = (radius_m / config.METERS_PER_DEGREE_LATITUDE) 
         
-        # If no context provided, we fallback to a global search (less accurate)
         if context_node and context_node in self.G.nodes:
             goal_lat = self.G.nodes[context_node]['y']
             goal_lon = self.G.nodes[context_node]['x']
             
-            # Spatial Crop (Fast Pandas indexing)
             nearby_df = self.poi_df[
                 (self.poi_df['y'] >= goal_lat - deg_buffer) & (self.poi_df['y'] <= goal_lat + deg_buffer) &
                 (self.poi_df['x'] >= goal_lon - deg_buffer) & (self.poi_df['x'] <= goal_lon + deg_buffer)
@@ -101,7 +98,7 @@ class OracleEngine:
         if nearby_df.empty:
             return None
 
-        # 3. Deep Column Search (Deep Heuristic)
+        # 3. Deep Column Search (This was the missing piece!)
         match_mask = (
             nearby_df['clean_name'].str.contains(target, na=False) |
             nearby_df['clean_amenity'].str.contains(target, na=False) |
@@ -112,21 +109,28 @@ class OracleEngine:
             nearby_df['clean_man_made'].str.contains(target, na=False)
         )
         
-        candidates = nearby_df[match_mask]
+        candidates = nearby_df[match_mask].copy()
 
+        # 4. Process Results with Fuzzy Prefix Fix
         if not candidates.empty:
-            # If multiple nearby, pick the closest one to the goal
             if context_node:
                 candidates['dist'] = ((candidates['y'] - goal_lat)**2 + (candidates['x'] - goal_lon)**2)**0.5
                 best_match = candidates.sort_values('dist').iloc[0]
             else:
                 best_match = candidates.iloc[0]
             
-            osmid = str(best_match['osmid']).replace('#', '')
-            target_node = f"{self.prefix}{osmid}"
+            # --- START OF FUZZY PREFIX FIX ---
+            raw_id = str(best_match['osmid']).replace('#', '').strip()
             
-            if target_node in self.G.nodes:
+            # These are the 3 variations we found in your Philly Graph diagnostic
+            possible_node_ids = [f"1#{raw_id}", f"#{raw_id}", raw_id]
+            
+            # Find the first one that actually exists in the Graph
+            target_node = next((node for node in possible_node_ids if node in self.G.nodes), None)
+            
+            if target_node:
                 return target_node
+            # --- END OF FUZZY PREFIX FIX ---
 
         return None
 
@@ -259,9 +263,11 @@ class OracleEngine:
         # Combining scores without adding columns to the DF (saves memory)
         final_scores = spatial_score + semantic_score
         nearest_idx = final_scores.idxmax()
+            
+        raw_osmid = str(filtered_df.loc[nearest_idx, 'osmid']).replace('#', '').strip()
+        possible_node_ids = [f"1#{raw_osmid}", f"#{raw_osmid}", raw_osmid]
         
-        raw_osmid = str(filtered_df.loc[nearest_idx, 'osmid']).replace('#', '')
-        return f"{self.prefix}{raw_osmid}"
+        return next((node for node in possible_node_ids if node in self.G.nodes), None)
     
     # --------- DIAGNOSTIC METHODS ---------
 

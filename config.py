@@ -86,8 +86,7 @@ S0_BUFFER_METERS = 20
 USE_SCC_OPTIMIZATION = True
 
 # --- Phase 3: Directional & Vector Logic ---
-# DIRECTIONAL_WEDGE_DEGREES = 45
-DIRECTIONAL_WEDGE_DEGREES = 90 # Testing expanded wedge for better recall in ambiguous cases
+DIRECTIONAL_WEDGE_DEGREES = 45
 
 # --- Phase 4: Landmark Grounding (Clamped Radius) ---
 # The influence zone scaling: 1.2 means 20% larger than the physical footprint
@@ -97,10 +96,6 @@ RADIUS_MIN = 15.0
 RADIUS_MAX = 150.0 
 # Fallback radius if area data is missing for a landmark in manhattan_poi.pkl
 DEFAULT_LANDMARK_BUFFER = 50.0
-
-# The prefix found in manhattan_graph.gpickle for projected POI nodes
-POI_NODE_PREFIX = "1#" 
-#POI_NODE_PREFIX = "999"  # Updated from RVS Readme logic
 
 # --- Oracle Classification Labels ---
 STATE_ANSWERABLE = "Answerable"
