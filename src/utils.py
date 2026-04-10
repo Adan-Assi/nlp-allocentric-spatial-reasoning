@@ -62,25 +62,29 @@ def is_within_buffer(G, agent_node, landmark_coords, radius):
     Checks if agent node is within a specific radius of landmark coordinates.
     Now used with get_clamped_radius for dynamic 'At/Near' logic.
     """
+    if radius is None:
+        radius = config.SUCCESS_RADIUS # Fallback to global default if not provided
+
     agent_coords = get_node_coords(G, agent_node)
     dist = get_geodesic_dist_raw(agent_coords[0], agent_coords[1], landmark_coords[0], landmark_coords[1])
     return dist <= radius
 
 # --- DIRECTIONAL & BEARING UTILITIES ---
 
-def get_dominant_direction(lat1: float, lon1: float, lat2: float, lon2: float) -> str:
-    """
-    Calculates N, S, E, or W based on which axis has the larger change.
-    Used for global strategy and filtering landmarks (e.g., 'North of the park').
-    """
-    dlat = lat2 - lat1
-    dlon = lon2 - lon1
+def get_dominant_direction(lat1, lon1, lat2, lon2):
+    bearing = calculate_bearing(lat1, lon1, lat2, lon2)
+    half_wedge = config.DIRECTIONAL_WEDGE_DEGREES / 2
     
-    if abs(dlat) >= abs(dlon):
-        return 'N' if dlat > 0 else 'S'
-    else:
-        return 'E' if dlon > 0 else 'W'
-
+    # Check against cardinal axes with the configurable wedge
+    if (360 - half_wedge) <= bearing or bearing < half_wedge: return 'N'
+    if (90 - half_wedge) <= bearing < (90 + half_wedge): return 'E'
+    if (180 - half_wedge) <= bearing < (180 + half_wedge): return 'S'
+    if (270 - half_wedge) <= bearing < (270 + half_wedge): return 'W'
+    
+    # Fallback to the old "largest change" logic if it's in a dead-zone
+    dlat, dlon = lat2 - lat1, lon2 - lon1
+    if abs(dlat) >= abs(dlon): return 'N' if dlat > 0 else 'S'
+    return 'E' if dlon > 0 else 'W'
 
 def calculate_bearing(lat1, lon1, lat2, lon2):
     """Calculates the bearing between two GPS points (0-360 degrees)."""
@@ -125,3 +129,71 @@ def is_past_landmark(start_coords, landmark_coords, candidate_coords):
     p = np.dot(v_c, v_l) / mag_l_sq
     
     return p > 1.0
+
+# --- GEODESIC GATEKEEPER ---
+
+def haversine_vectorized(lat1, lon1, lat2, lon2):
+    """
+    Calculates the great circle distance between two points 
+    on the earth (specified in decimal degrees).
+    """
+    # Earth radius in meters
+    R = 6371000
+    
+    # Convert decimal degrees to radians 
+    lat1, lon1, lat2, lon2 = map(np.radians, [lat1, lon1, lat2, lon2])
+
+    # Haversine formula 
+    dlat = lat2 - lat1 
+    dlon = lon2 - lon1 
+    a = np.sin(dlat/2.0)**2 + np.cos(lat1) * np.cos(lat2) * np.sin(dlon/2.0)**2
+    c = 2 * np.arcsin(np.sqrt(a)) 
+    return R * c
+
+def apply_geodesic_gatekeeper(agent_coords, candidates_df, radius=1500):
+    """
+    Shared helper to filter POIs based on the 'Human Reasoning Horizon'.
+    
+    Args:
+        agent_coords (tuple): (lat, lon)
+        candidates_df (pd.DataFrame): POIs matching the NLP category
+        radius (int): Default 1500m (Paz-Argaman et al. threshold)
+    """
+    if candidates_df.empty:
+        return candidates_df
+
+    # Extract coordinates for vectorized calculation
+    cand_lats = candidates_df.geometry.y.values
+    cand_lons = candidates_df.geometry.x.values
+    
+    # Calculate all distances at once (Vectorized is 50x faster than .apply)
+    distances = haversine_vectorized(agent_coords[0], agent_coords[1], cand_lats, cand_lons)
+    
+    return candidates_df[distances <= radius].copy()
+
+# --- CONNECTIVITY & GRAPH OPTIMIZATION ---
+
+def get_scc_map(G):
+    """
+    Generates a mapping of Node ID -> Component ID.
+    Two nodes can reach each other if and only if they share the same Component ID.
+    """
+    scc = list(nx.strongly_connected_components(G))
+    # Create a dictionary where key is node_id and value is the index of its SCC
+    scc_map = {}
+    for i, component in enumerate(scc):
+        for node in component:
+            scc_map[node] = i
+    return scc_map
+
+def is_reachable_fast(scc_map, start_node, end_node):
+    """
+    Instant reachability check using SCC mapping.
+    Replaces expensive nx.has_path() calls.
+    """
+    # If either node is missing from map (not in graph), they aren't reachable
+    if start_node not in scc_map or end_node not in scc_map:
+        return False
+        
+    # In a Strongly Connected Component, every node can reach every other node
+    return scc_map[start_node] == scc_map[end_node]

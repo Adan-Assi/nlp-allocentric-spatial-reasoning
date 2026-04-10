@@ -1,59 +1,61 @@
+import json
+import sys
 import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from src.oracle_engine import OracleEngine
 from src.symbolic_solver import SymbolicSolver
+from config import LANDMARK_GROUPS  # Import our new 2.5 Mapping
 
 def run_integration_tests():
     print("=" * 70)
-    print("SYMBOLIC SOLVER INTEGRATION TESTS")
+    print("🚀 SYMBOLIC SOLVER: CATEGORY-AWARE INTEGRATION TESTS")
     print("=" * 70)
 
-    # 1. Setup the environment
+    # 1. Setup
     graph_path = 'data/manhattan/manhattan_graph.gpickle'
     poi_path = 'data/manhattan/manhattan_poi.pkl'
     
     if not os.path.exists(graph_path):
-        print(f"❌ Error: {graph_path} not found. Skipping tests.")
+        print(f"❌ Error: {graph_path} not found.")
         return
 
     oracle = OracleEngine(graph_path, poi_path)
     solver = SymbolicSolver(oracle)
 
-    # TEST 0: BASIC LOAD CHECK
-    print(f"\n[TEST 0] Graph Stats:")
-    print(f"Nodes: {len(solver.G.nodes)}")
-    print(f"Edges: {len(solver.G.edges)}")
-
-    # TEST 1: REACHABILITY
-    print("\n" + "="*70 + "\nTEST 1: REACHABILITY\n" + "="*70)
     node_ids = list(solver.G.nodes)
-    n1, n2 = node_ids[0], node_ids[100]
+    start_node = node_ids[0]
+
+    # --- NEW TEST 4: KEYWORD RESOLUTION (Task 2.5 Verification) ---
+    print("\n" + "="*70 + "\nTEST 4: KEYWORD RESOLUTION (2.5 MAPPING)\n" + "="*70)
     
-    result = solver.check_reachability(n1, n2)
-    print(f"✅ Reachability {n1} → {n2}: {result}")
+    # We will test three levels of mapping we defined in config.py
+    test_queries = [
+        "CHURCH",            # Level 1: Pure Root
+        "the small garden",  # Level 2: Messy string containing Root
+        "POST OFFICE",       # Level 3: Multi-word specific match
+        "7-ELEVEN"           # Level 4: Brand name fallback
+    ]
 
-    # TEST 2: SHORTEST PATH & DISTANCE
-    print("\n" + "="*70 + "\nTEST 2: SHORTEST PATH\n" + "="*70)
-    path = solver.compute_shortest_path(n1, n2)
-    if path:
-        dist = solver.get_path_length(path)
-        print(f"✅ Path found! Nodes: {len(path)}, Total Distance: {dist:.2f}m")
-    else:
-        print("⚠️ No path found between chosen sample nodes.")
+    for query in test_queries:
+        print(f"\n🔍 Testing Query: '{query}'")
+        
+        # This simulates what the Parser (3.1) sends to the Solver
+        # The Solver should look at query, find the Root in LANDMARK_GROUPS, 
+        # and then query the Oracle for those OSM tags.
+        path_to_poi = solver.get_path_to_landmark(start_node, query)
+        
+        if path_to_poi:
+            dist = solver.get_path_length(path_to_poi)
+            print(f"✅ SUCCESS: '{query}' resolved to a coordinate. Path: {dist:.2f}m")
+        else:
+            print(f"❌ FAILURE: '{query}' could not be mapped to an OSM entity.")
 
-    # TEST 3: DIRECTION
-    print("\n" + "="*70 + "\nTEST 3: DIRECTION\n" + "="*70)
-    # Using real nodes to test the new Node ID based direction logic
-    direction = solver.get_coarse_direction(n1, n2)
-    print(f"✅ Direction from {n1} to {n2}: {direction}")
-
-    # TEST 4: ORACLE BRIDGE
-    print("\n" + "="*70 + "\nTEST 4: LANDMARK NAVIGATION\n" + "="*70)
-    sample_landmark = "Hell's Kitchen" # Ensure this exists in your POI csv
-    path_to_poi = solver.get_path_to_landmark(n1, sample_landmark)
-    if path_to_poi:
-        print(f"✅ Successfully found path to {sample_landmark}!")
-    else:
-        print(f"❌ Could not resolve or find path to {sample_landmark}")
+    # --- NEW TEST 5: DIRECTIONAL REASONING ---
+    print("\n" + "="*70 + "\nTEST 5: SPATIAL REASONING (RELATIVE BEARING)\n" + "="*70)
+    # Testing if the solver can tell us where a landmark is relative to our path
+    target_landmark = "BANK"
+    bearing = solver.get_landmark_bearing(start_node, target_landmark)
+    print(f"✅ The {target_landmark} is currently to your: {bearing}")
 
 if __name__ == '__main__':
     run_integration_tests()

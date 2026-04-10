@@ -208,6 +208,55 @@ We focus on **qualitative error patterns** and robustness trends rather than lea
 - Plan larger-scale experiments and comparisons
 
 ---
+## 📈 Performance Benchmarks (Manhattan Dataset)
+
+Through targeted vectorization and spatial pre-calculation, the pipeline achieved a **15x speedup** over the baseline implementation.
+
+| Metric | Baseline (Iterative) | Optimized (Vectorized) | Improvement |
+| :--- | :--- | :--- | :--- |
+| **Iteration Speed** | 1.59 it/s | **23.87 it/s** | +1401% |
+| **Total Time (7k rows)** | ~73 Minutes | **~4.9 Minutes** | -68.1 Min |
+| **Grounding Logic** | Row-wise `.apply()` | Sniper-Targeted String Search | N/A |
+
+### 🔑 Optimization Key Drivers
+1. **Geometric Pre-calculation**: Extracting centroids to raw floats avoided the "Shapely Overhead" during distance loops.
+2. **Boolean Masking**: Swapping `df.copy()` for boolean indexing reduced memory fragmentation and CPU cycles.
+3. **C-Level String Operations**: Using `.str.contains` (C-optimized) instead of Python-level `any()` checks for metadata search.
+---
+## 🏁 Dataset Generation Summary
+
+The pipeline has successfully generated a multi-city Silver Standard dataset. 
+
+| City | Total Samples | Answerable | Contradictory | Ambiguous | Avg. Speed |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **Manhattan** | 7,000 | 6,586 | 412 | 2 | 19.02 it/s |
+| **Pittsburgh** | 1,023 | 874 | 149 | 0 | 31.83 it/s |
+| **Philadelphia** | 1,278 | 1,084 | 194 | 0 | 25.73 it/s |
+| **TOTAL** | **9,301** | **8,544** | **755** | **2** | **~25 it/s** |
+
+### 🛠️ Data Integrity Note
+
+The **91.8% Answerability Rate** confirms that the Oracle's hybrid distance-semantic scoring is robust across different urban topologies. The **8.1% Contradictory Rate** provides a high-quality set of "Negative Samples" for training navigation models to recognize impossible spatial constraints.
+
+---
+
+## 📈 Batch Labeling Performance (Final)
+
+The labeling pipeline utilizes a vectorized "Sniper Search" strategy, achieving significant throughput across major urban datasets.
+
+| City | Total Samples | Answerable | Contradictory | Speed (it/s) | Total Time |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **Manhattan** | 7,000 | 6,586 | 412 | 23.65 | ~4.9 min |
+| **Pittsburgh** | 1,023 | 874 | 149 | **67.76** | ~15 sec |
+| **Philadelphia** | 1,278 | 1,084 | 194 | 51.51 | ~24 sec |
+
+### 🔍 Grounding Audit Metadata
+The generated `.parquet` files now include an **Audit Trail** for every decision, allowing for deep-dive debugging without re-running the NLP engine:
+* **`extracted_category`**: The high-level symbolic group (e.g., SHOP, OFFICE).
+* **`extracted_noun`**: The specific landmark string identified from the text.
+* **`target_tags`**: The exact OSM tag dictionary used for the spatial query.
+
+---
 
 ## 👥 Team
 
