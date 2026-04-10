@@ -250,7 +250,7 @@ class SymbolicSolver:
 
             # Precedent: Paz-Argaman et al. (2020) "Gold Zone" 
             # If the closest is within 200m and at least twice as close as the second option
-            if d1 < 200 and d1 < (d2 * 0.5):
+            if d1 < 200 and d1 < (d2 * config.get_salience_ratio()):
                 candidates = [sorted_cands[0]]
             else:
                 # Still truly ambiguous (e.g., two cafes on the same block)

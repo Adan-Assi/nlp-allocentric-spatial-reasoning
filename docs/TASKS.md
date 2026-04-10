@@ -18,7 +18,7 @@
 - [x] **Task 2.5: Categorical Grounding & Brand Resolution**
     - Developed `CategoricalMatcher` to bridge brands (Starbucks) to OSM tags (CAFE).
     - Implemented Dependency Parsing in `extraction_utils.py` to identify goal objects.
-    - Result: Reduced Manhattan ambiguous samples from 307 to 2.
+    - Result: Reduced Manhattan ambiguous samples significantly via density-aware logic.
 
 ## ✅ Phase 3: Validation & The Labeling Pipeline (COMPLETED)
 - [x] **Task 3.1: The "Sanity Check" Suite**
@@ -27,22 +27,22 @@
     - Updated `SymbolicSolver` to return structured dicts (`Answerable`, `Ambiguous`, `Contradictory`).
 - [x] **Task 3.3: Batch Labeling Script**
     - Created `scripts/batch_labeling.py` with KD-Tree optimization (~120 it/s).
-    - Generated `manhattan_silver_standard.parquet` (6,998 answerable samples).
+    - Generated Manhattan samples with 77.8% yield.
 
-## 🌍 Phase 4: Multi-City Expansion (IN PROGRESS)
-*Goal: Generalize the Oracle to the full RVS dataset (Pittsburgh & Philadelphia).*
-
+## ✅ Phase 4: Multi-City Expansion (COMPLETED)
 - [x] **Task 4.1: Multi-City Asset Ingestion & Validation**
-    - Import `pittsburgh_graph.gpickle` and `philadelphia_graph.gpickle` from RVS Drive.
-    - Run compatibility checks to ensure `pickle.load` works across NetworkX versions.
-- [ ] **Task 4.2: City-Agnostic Solver Refactor**
-    - Update `batch_labeling.py` to dynamically load the correct graph/POI index and apply city-specific success radii (80m for MHT, 100m for PIT/PHL).
-- [ ] **Task 4.3: Generate Full Silver Standard**
-    - [ ] **Task 4.3.1: Slurm Job Configuration (`scripts/submit_labeling.sh`)**
-        - *Note: Use Slurm here to run MHT, PIT, and PHL in parallel to save time.*
-    - [ ] **Run labeling pipeline for all RVS splits to create a complete training/testing corpus.**
+    - Imported Pittsburgh and Philadelphia assets; verified NetworkX compatibility.
+- [x] **Task 4.2: City-Agnostic Solver Refactor**
+    - Implemented dynamic parameter tuning: **0.5 Salience Ratio** (PHL/PIT) and **0.7 Salience Ratio** (MHT).
+- [x] **Task 4.3: Generate Full Silver Standard**
+    - [x] **Task 4.3.1: Forensic Audit**
+        - Conducted range-check and existence-check (e.g., "Pretzel Factory" case study).
+        - Verified 1500m search horizon aligns with Paz-Argaman et al. (2020) local-context constraints.
+    - [x] **Task 4.3.2: Create Master Dataset**
+        - Merged 3 cities into `RVS_MASTER_SILVER_STANDARD.parquet`.
+        - Result: **7,263 Answerable** training samples (78.1% Yield).
 
-## 📉 Phase 5: Evaluation & Degradation
+## 📉 Phase 5: Evaluation & Degradation (IN PROGRESS)
 *Goal: Prove the impact of underspecification and benchmark SOTA models.*
 
 - [ ] **Task 5.1: LLM Benchmarking (`scripts/evaluate_llm.py`)**
@@ -53,24 +53,22 @@
 - [ ] **Task 5.3: Automated Degradation Analysis**
     - Generate plots showing `Answerable` → `Ambiguous` flips as information is removed.
 
+## 🧠 Phase 6: Modeling & Training (PLANNED)
+- [ ] **Task 6.1: Train/Val/Test Splitting**
+    - Create city-balanced splits from the 7,263 answerable rows.
+- [ ] **Task 6.2: Neural Baseline Construction**
+    - Set up a sequence-to-sequence or regression head model to map instructions to coordinates.
+
 ---
 
 ### 🚀 Slurm Quick-Reference
 | Task | Why use the Cluster? |
 | :--- | :--- |
-| **4.3 (Labeling)** | Parallelize processing of ~10k examples across 3 cities. |
 | **5.1 (LLM Eval)** | Access high-end GPUs for local model inference (~1B params). |
+| **6.2 (Training)** | Accelerate backprop for multi-epoch spatial reasoning training. |
 
 ---
 
 ## ⚠️ Technical Debt
-- [x] **Refactor Legacy Tests:** (Done) Updated all scripts to use `pickle.load` for graph loading.
-- [ ] **Error Handling:** Add robust catch for the remaining 2 malformed Manhattan instructions.
-
-## 👥 Suggested Team Assignments
-
-| Role | Tasks | Primary Goal |
-| :--- | :--- | :--- |
-| **Backend/Geometry Lead** | 4.1, 4.2, 4.3.1 | Multi-city infrastructure & Slurm setup |
-| **Data/ML Lead** | 4.3, 5.1 | Full dataset generation & LLM Eval |
-| **NLP/Robustness Lead** | 5.2, 5.3 | Masking engine & degradation analysis |
+- [x] **Type Safety:** (Done) Standardized `sample_id` as String to prevent PyArrow conversion errors during merge.
+- [ ] **Error Handling:** Add robust catch for the remaining malformed instructions if encountered during inference.

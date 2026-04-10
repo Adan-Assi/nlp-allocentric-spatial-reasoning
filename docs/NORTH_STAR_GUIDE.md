@@ -32,23 +32,8 @@ Now that we have the physical nodes, we test the spatial constraints.
     - **Ambiguous:** **Multiple** nodes fit (The instruction is now vague).
     - **Contradictory:** **0** nodes fit (The instruction is now impossible).
 
-
-
 ---
 
-## 🔍 Clarification: Oracle Truth vs. Human Goal
-
-A common point of confusion is: *If we have the original Human Goal from the RVS dataset, why do we need the Oracle to generate new labels?*
-
-**The Answer:** Because we are testing **Reasoning**, not just **Memory.**
-
-1. **The "Lucky Guess" Problem:** If we mask "Starbucks" to "[MASK]", there might be 20 different coffee shops that fit the description. Even if the "Human Goal" was one specific Starbucks, a masked instruction that fits 20 locations is scientifically **Ambiguous**. 
-
-2. **Measuring Hallucination:** If the Oracle says "Ambiguous (20 matches)" but the LLM confidently picks the original Human Goal, the LLM is **hallucinating certainty**. It isn't reasoning; it's guessing based on surface patterns.
-
-3. **The Robustness Metric:** We evaluate the LLM on whether its behavior matches the **Oracle's mathematical certainty**. If the Oracle says it's impossible (Contradictory), a robust LLM should say "I can't find that," rather than picking the original goal node.
-
----
 
 ## 🚀 Execution Strategy (Phase 4 & 5)
 

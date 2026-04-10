@@ -17,8 +17,11 @@ This index serves as the central map for our symbolic navigation pipeline. Use t
 | [`geo_paths_layers.ipynb`](./geo_paths_layers.ipynb) | **GeoPackage Inspection:** Uses `fiona` to audit the `manhattan_geo_paths.gpkg` file. Identifies layers for start/end points and pivot landmarks (Main, Near, Beyond). | Consult this to understand the **multi-layer structure** of our spatial paths and how pivot landmarks are categorized. |
 | **🧭 Semantic Grounding & Testing** | | |
 | [`Manhattan_Semantic_Navigator.ipynb`](./Manhattan_Semantic_Navigator.ipynb) | **Intelligence Validation:** Tests the `deep_search` logic by matching instruction text to physical coordinates using semantic scoring. | Consult this to see **how the Solver "thinks"** when resolving a vague goal name to a specific map coordinate. |
-| [`debug_contradictory_samples.ipynb`](./debug_contradictory_samples.ipynb) | **Failure Mode Analysis:** A forensic audit of the 412 "Contradictory" samples. Identifies the "Semantic Gap" between human typos and OSM tags. | Consult this to **understand the 3.4% accuracy loss** caused by linguistic noise and brand-category collisions. |
+| [`debug_contradictory_samples.ipynb`](./debug_contradictory_samples.ipynb) | **Oracle V4 Development & Deep Search:** Forensic audit of 412 "Contradictory" samples. Implements the "Aggressive V4" loop (1.5km bounding box + multi-column deep search). | Consult this to understand the **Net Gain Calculation** (V1 vs. V4) and how searching across `amenity`, `shop`, and `tourism` tags simultaneously resolved the "Data Gap" issue. |
 | [`validate_oracle_v4_update.ipynb`](./validate_oracle_v4_update.ipynb) | **Production Benchmarking (V4):** The final validation suite for the Proximity-Aware Oracle. Confirms the 92.53% accuracy and the "Rescue" of 310 samples. | Consult this for the **final performance metrics** of the Manhattan Silver Standard V4. |
+| [`philly_rescue_931_ambiguous.ipynb`](./philly_rescue_931_ambiguous.ipynb) | **NLP Debugging & Silver Merge:** Diagnoses the Philly "None Noun" failure and executes the initial 3-city merge into the Silver Standard. | Consult this for the **V3 Extraction Logic**, the "Pretzel Factory" range-logic proof, and the logic used to create the foundation for the eventual Gold Standard. |
+| **🏅 Final Gold Verification** | | |
+| [`truth_convergence_audit.ipynb`](./truth_convergence_audit.ipynb) | **Geodetic Hydration & Baseline Validation:** Hydrates 9,301 Symbolic IDs into $WGS84$ coordinates. Benchmarks the dataset against the official RVS "STOP" Baseline (1,124m). | Consult this for the **Proof of Gold Status** and to verify that the final dataset perfectly replicates official research task difficulty. |
 ---
 
 ## 🗺️ Visualization Artifacts (.html)
@@ -31,14 +34,19 @@ These files are the rendered outputs of our spatial inference tasks. Open these 
 ---
 
 ### 💡 Key Technical Insights
-* **Layering:** `geo_paths_layers` confirmed the use of a 6-layer GeoPackage, separating path features from pivot points.
 
-* **Prefix Management:** `integration_check` confirmed the mandatory `1#` prefix for node lookups within the `.gpickle` graph.
+* **The V4 Deep Search Mask:** `debug_contradictory_samples` proved that categorical searches were too narrow. By implementing a **Multi-Column Mask** (searching `name`, `amenity`, `shop`, `tourism`, `leisure`, `historic`, and `man_made` simultaneously), the Oracle V4 reclaimed **310 instructions** previously lost to "Data Gaps" in OSM tagging.
 
-* **The 1.5km Decision:** Sensitivity Analysis proved that 1500m is the "Efficiency Peak," capturing **84%** of landmarks before candidate noise grows exponentially.
+* **Bounding Box Optimization:** To maintain efficiency during aggressive searches, we implemented a **Geospatial Bounding Box** ($\Delta \approx 0.0135^\circ$ or $1500m$). This pre-filter allows the "Deep Search" to remain computationally lightweight while maintaining a **98% landmark recall**.
 
-* **Data Density:** `inspect_poi` identified `amenity` (20k+ entries) and `shop` (3.5k+ entries) as the primary high-confidence columns for the Oracle.
+* **The "None" Noun Resolution:** `philly_rescue_931_ambiguous` identified a critical NLP failure where the solver defaulted to ambiguous categorical searches. Implementing the **V3 Anchor-Based Parser** (clipping text at the *last* 'at' or 'to' token) rescued the Philadelphia yield from a **2.4%** success rate to over **80%**.
 
-* **Vectorization vs. Iteration:** `targeted_discovery` proved that searching 6 high-density columns via vectorization is **40x faster** than a whole-row `.apply()` search while maintaining **98%** landmark recall.
+* **Range-Based Contradiction:** Audit of the "Pretzel Factory" case proved that "Contradictory" labels are often geographically accurate but spatially impossible. By rejecting landmarks >1.5km from the agent, the Oracle enforces a **Local Reasoning Horizon** consistent with human observable limits (Paz-Argaman et al., 2020).
 
-* **The Semantic Gap (V4):** `validate_oracle_v4` proved that combining fuzzy string matching with a 1500m spatial anchor reclaims **310 instructions** that were previously discarded as "noise."
+* **Vectorization vs. Iteration:** `targeted_discovery` proved that searching high-density columns via vectorization is **40x faster** than whole-row `.apply()` iteration. This optimization was the prerequisite for scaling the pipeline to the 14,000-node Philadelphia graph without timeouts.
+
+* **Schema Standardization:** During the final merge, we resolved a critical `ArrowTypeError` by forcing `sample_id` to **String** format. This ensured 100% schema compatibility when merging city-specific Parquet files into the unified `RVS_MASTER_GOLD_HYDRATED`.
+
+* **Geodetic Convergence:** `truth_convergence_audit` validated that the hydrated "Gold" coordinates replicate the official RVS "STOP" baseline with **<1% variance** (1,133m vs 1,124m). This confirms the dataset provides a high-fidelity replica of the task difficulty found in state-of-the-art navigation research.
+
+* **Data Provenance:** `geo_paths_layers` and `integration_check` confirmed the structural integrity of the pipeline, specifically the use of a **6-layer GeoPackage** and the mandatory **1# node prefixing** required for consistent graph lookups.

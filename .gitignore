@@ -13,25 +13,34 @@ Thumbs.db
 
 # --- ML / DATA SPECIFIC --- #
 
-# Ignore all city-specific binary data (Recursive)
+# --- ML / DATA SPECIFIC --- #
+
+# 1. Ignore all city-specific binary data
 data/**/*.gpickle
 data/**/*.pkl
 data/**/*.gpkg
 data/**/*.graphml
-data/**/*.parquet
 
-# Ignore the raw JSON instruction files
+# 2. Ignore ALL Parquet files by default (includes city silver files)
+data/**/*.parquet
+*.parquet
+
+# 3. EXCEPTION: Specifically allow the Master Gold file
+!data/RVS_MASTER_GOLD_HYDRATED.parquet
+
+# 4. Ignore the raw JSON instruction files
 data/**/*.json
 
-# Exceptions: Keep our variants and small configs if needed
+# Exceptions: Keep our variants and small configs
 !data/**/underspecified_variants.json
 !data/graphs/manifest.json
 
-# Ignore Analysis/Temporary artifacts
-all_discovered_landmarks.csv
+# 5. Ignore any HTML files (e.g., from Jupyter exports)
 *.html
-.ipynb_checkpoints/
 
-# Ignore any large CSVs or Parquet files in the data directory (e.g., raw data dumps)
-data/manhattan/*.csv
-*.parquet
+# Ignore specific temporary debug artifacts
+appendix_rescued_samples_v4.csv
+
+# Ignore Jupyter notebook checkpoints and cache
+.ipynb_checkpoints/
+notebooks/cache/

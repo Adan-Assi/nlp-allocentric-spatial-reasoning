@@ -25,6 +25,7 @@ CURRENT_CITY = "manhattan" # Default
 CITY_SETTINGS = {
     "manhattan": {
         "success_radius": 80,
+        "salience_ratio": 0.7,
         "raw_json": "manhattan.json", 
         "graph_file": "manhattan_graph.gpickle",
         "poi_file": "manhattan_poi.pkl",
@@ -33,6 +34,7 @@ CITY_SETTINGS = {
     },
     "pittsburgh": {
         "success_radius": 100,
+        "salience_ratio": 0.5,
         "raw_json": "pittsburgh.json",
         "graph_file": "pittsburgh_graph.gpickle",
         "poi_file": "pittsburgh_poi.pkl",
@@ -41,6 +43,7 @@ CITY_SETTINGS = {
     },
     "philadelphia": {
         "success_radius": 250,  # Matches the RVS "Coarse" baseline for Philly
+        "salience_ratio": 0.5,  # More lenient due to Philly's sparser POI distribution
         "raw_json": "philadelphia.json",
         "graph_file": "philadelphia_graph.gpickle",
         "poi_file": "philadelphia_poi.pkl",
@@ -66,6 +69,10 @@ def get_success_radius():
 def get_node_prefix():
     """Returns the city-specific node prefix for POI nodes."""
     return CITY_SETTINGS.get(CURRENT_CITY)["node_prefix"]
+
+def get_salience_ratio():
+    """Returns the city-specific salience ratio for ambiguity resolution."""
+    return CITY_SETTINGS.get(CURRENT_CITY)["salience_ratio"]
 
 # Output Reports
 AMBIGUITY_REPORT_CSV = os.path.join(BASE_DIR, "data", "manhattan", "ambiguity_report.csv")

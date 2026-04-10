@@ -9,6 +9,9 @@ This directory contains the theoretical grounding, empirical justifications, and
     * **READ THIS FIRST.** The "North Star" for the project.  
     * *Purpose:* Explains the **Research Question**, the **Identity Resolution vs. Geometric Reasoning** distinction, and why we evaluate LLMs against the **Oracle Truth** rather than the original human goal.
 
+* **[`FAQs.md`](./FAQs.md)**
+    * *Purpose:* The central repository for common questions and technical justifications.
+    * *Key Content:* Consolidates the answers to recurrent project hurdles, explaining the logic behind the "Silver Standard," the shift to Oracle-based evaluation, and the project's data-masking protocols.
 ---
 
 ## 🔬 Core Research & Theory
