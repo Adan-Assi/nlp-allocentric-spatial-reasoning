@@ -116,6 +116,7 @@ METERS_PER_DEGREE_LATITUDE = 111000.0
 
 # --- OSM Metadata Mapping ---
 # Maps keywords from instructions to specific columns and values in manhattan_poi.pkl
+
 # Task 2.5 Final Mapping - based on coverarge results
 LANDMARK_GROUPS = {
     "CHURCH": {"amenity": ["place_of_worship", "monastery"]},
