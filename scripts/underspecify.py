@@ -102,9 +102,8 @@ if __name__ == "__main__":
             all_experiments.append({
                 "sample_id": sample.get('sample_number', 'N/A'),
                 "city": city,
-                "original_text": sample['instruction'],
-                "rvs_start_point": sample['start_point'],
-                "rvs_goal_point": sample['goal_point'],
+                "original_text": sample.get('instruction', ''),
+                "rvs_goal_point": sample.get('goal_point'), # Parser used 'goal_point'
                 "variants": sample_variants
             })
 

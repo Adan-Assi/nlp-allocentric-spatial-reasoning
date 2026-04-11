@@ -1,44 +1,55 @@
 # 📂 Scripts Directory: RVS Spatial Reasoning Pipeline
 
-This folder contains the core utility scripts for the **NLP Spatial Reasoning Project**. These scripts handle the end-to-end workflow: downloading instructions, loading RVS-provided graphs, and generating **Silver Standard** labels for multi-city navigation.
+This folder contains the core utility scripts and HPC configurations for the **NLP Spatial Reasoning Project**. These scripts handle the end-to-end workflow: data ingestion, symbolic labeling, information degradation, and large-scale LLM benchmarking.
 
 ## 🛠️ Script Registry
 
 | Script Path | Status | Goal / Purpose |
 |:---|:---|:---|
-| `data_download.py` | Core | Fetches the raw `tzufi/RVS` instruction dataset from Hugging Face. |
-| `normalize_raw.py` | Core | Cleans raw dataset columns and extracts `[lat, lon]` pairs for start/goal. |
-| `batch_labeling.py` | **Primary** | **The Main Engine:** Uses `SymbolicSolver` + `OracleEngine` on the RVS Google Drive assets. |
-| `underspecify.py` | Research | Generates "Ambiguous" variants by masking landmarks to test model degradation (Phase 5). |
-| `verify_label_quality.py` | QA | Audits the distribution of `Answerable` vs `Ambiguous` labels in Parquet outputs. |
-| `stress_test_oracle.py` | QA | Diagnostic suite for validating Oracle logic across city boundaries. |
-| `qc_ambiguous.py` | Tool | Quality Control utility for manual inspection of ambiguous samples. |
+| [`data_download.py`](./data_download.py) | Core | Fetches the raw `tzufi/RVS` instruction dataset from Hugging Face. |
+| [`normalize_raw.py`](./normalize_raw.py) | Core | Cleans raw dataset columns and extracts `[lat, lon]` pairs. |
+| [`batch_labeling.py`](./batch_labeling.py) | **Primary** | **The Main Engine:** Executes the `SymbolicSolver` + `OracleEngine` pipeline. |
+| [`underspecify.py`](./underspecify.py) | Research | **Masking Engine:** Generates 22k+ landmark/direction masked variants. |
+| [`evaluate_llm.py`](./evaluate_llm.py) | Research | **Inference Engine:** Standard evaluation of the Silver Standard (7k rows). |
+| [`evaluate_llm_masked.py`](./evaluate_llm_masked.py) | Research | **Stress-Test Engine:** Benchmarks the 22,173 underspecified variants. |
+| [`verify_label_quality.py`](./verify_label_quality.py) | QA | Audits the distribution of `Answerable` vs `Ambiguous` labels. |
 
-### 📦 Archive / Development Only
-*Scripts that are NOT part of the standard RVS production pipeline:*
-- `build_region_graphs.py`: **Do not use.** OSMnx builds live graphs; we must use the RVS Google Drive `.gpickle` files to avoid data misalignment.
-- `attach_target_node_all_regions.py`: Legacy script; node snapping is now handled dynamically in `batch_labeling.py` via KDTree.
-- `rvs_parser.py`: Superceded by the unified loading logic in `batch_labeling.py`.
+## 🚀 Cluster Inference (HPC / SLURM)
 
----
+To reproduce the Phase 5 analysis on a GPU cluster, utilize the following batch scripts:
 
-## 🚀 Execution Flow (The "Silver Standard" Path)
+* [`job_evaluate_llm.sh`](./job_evaluate_llm.sh): **Baseline Run.** Configured for a 1-hour window on a standard GPU partition to validate the core 7k samples.
+* [`job_evaluate_llm_masked.sh`](./job_evaluate_llm_masked.sh): **Production Degradation Run.** Optimized for the `studentkillable` partition with a 4-hour window and 32GB RAM to process all 22,173 experimental variants.
 
-To reproduce the dataset labels from scratch using the RVS-provided maps:
+**Example Usage:**
+```bash
+sbatch scripts/job_evaluate_llm_masked.sh
+```
 
-1.  **Map Acquisition:** Ensure the `.gpickle` and `_poi.pkl` files from the RVS Google Drive are placed in `data/[city_name]/`.
-2.  **Data Preparation:** 
-    * `python data_download.py`
-    * `python normalize_raw.py`
-3.  **Labeling (The Big Run):**
-    * `python batch_labeling.py --city manhattan`
-    * `python batch_labeling.py --city philadelphia`
-    * `python batch_labeling.py --city pittsburgh`
-4.  **Verification:**
-    * `python verify_label_quality.py`
+## 🚀 Execution Flow (The "Full Loop")
+
+1. **Map Acquisition:** Place `.gpickle` and `_poi.pkl` assets in `data/[city_name]/`.
+2. **Data Preparation:** * `python scripts/data_download.py`
+    * `python scripts/normalize_raw.py`
+3. **Labeling:**
+    * `python scripts/batch_labeling.py --city [manhattan/philadelphia/pittsburgh]`
+4. **Degradation & Inference (Phase 5):**
+    * `python scripts/underspecify.py`
+    * `sbatch scripts/job_evaluate_llm_masked.sh`
+5. **Analysis:**
+    * Open `notebooks/llm_degradation_analysis.ipynb` to generate final plots.
 
 ## 📋 Requirements
-- **NetworkX / OSMnx**: For graph topology.
-- **Geopy**: Geodesic distance (meters) for Success Radius checks.
-- **Scipy**: `KDTree` for high-speed spatial node snapping.
-- **Pandas / PyArrow**: For efficient Silver Standard Parquet storage.
+* **NetworkX / OSMnx**: Graph topology and navigation.
+* **Scipy / KDTree**: High-speed spatial node snapping.
+* **PyTorch / Transformers**: LLM inference (T5-base).
+* **Pandas / PyArrow**: High-efficiency data storage (Parquet).
+
+## 📦 Archive / Development Only
+*Scripts that are NOT part of the standard RVS production pipeline:*
+
+| Script Path | Reason for Archive |
+|:---|:---|
+| `build_region_graphs.py` | **Do not use.** OSMnx builds live graphs; we must use the RVS Google Drive `.gpickle` files to avoid data misalignment with the original research. |
+| `attach_target_node_all_regions.py` | **Legacy.** Node snapping is now handled dynamically within `batch_labeling.py` via the high-speed `KDTree` implementation. |
+| `rvs_parser.py` | **Superceded.** The logic has been unified and optimized inside the main `batch_labeling.py` and `underspecify.py` scripts for better consistency. |

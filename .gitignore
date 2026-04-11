@@ -25,8 +25,9 @@ data/**/*.graphml
 data/**/*.parquet
 *.parquet
 
-# 3. EXCEPTION: Specifically allow the Master Gold file
+# 3. EXCEPTIONS: Specifically allow the core Master files
 !data/RVS_MASTER_GOLD_HYDRATED.parquet
+!data/RVS_MASTER_SILVER_STANDARD.parquet
 
 # 4. Ignore the raw JSON instruction files
 data/**/*.json
