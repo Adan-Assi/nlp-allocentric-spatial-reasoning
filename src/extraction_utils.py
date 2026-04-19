@@ -82,7 +82,6 @@ def extract_rvs_target(text: str) -> tuple:
 
     # 4. Resolve Category using the module-level matcher
     try:
-        from src.extraction_utils import matcher
         category = matcher.get_category(noun)
     except:
         category = "UNKNOWN"
