@@ -230,8 +230,8 @@ class SymbolicSolver:
         # 3. Label Assignment (The Silver Standard)
         count = len(candidates)
         metadata = {
-            "category": category, 
-            "noun": raw_noun, 
+            "extracted_category": category, # Renamed from 'category'
+            "extracted_noun": raw_noun,      # Renamed from 'noun'
             "candidate_count": count
         }
 

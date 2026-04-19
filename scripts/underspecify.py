@@ -1,50 +1,40 @@
-import config
+import sys
 import json
 import re
 import os
-from rvs_parser import load_rvs_accurate
+import pandas as pd
 
-def generate_variants(sample):
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import config
+
+def generate_variants(sample_row):
     """
-    Creates underspecified versions of a single instruction.
-    Includes a 'Hard Mode' (mask_both) for later research stages.
+    FIXED: Uses extracted_noun from the Silver Standard metadata 
+    to ensure landmark masking works in sparse cities like Philadelphia.
     """
-    original_text = sample['instruction']
-    landmarks = sample['landmarks']
+    original_text = sample_row['instruction']
     variants = []
-
-    # 1. Landmark Masking Logic (Improved)
-    landmark_masked_text = original_text
-    applied_landmark_mask = False
     
-    # Extract ALL unique landmark strings from the sample
-    # This grabs "church", "garden", "3 World Trade Center", etc.
-    all_landmark_names = set()
-    for val in sample.get('landmarks', {}).values():
-        if isinstance(val, list) and len(val) > 1:
-            all_landmark_names.add(str(val[1]))
-        elif isinstance(val, str):
-            all_landmark_names.add(val)
+    # 1. Use the 'extracted_noun' (the generic or proper name found by the Solver)
+    # This was previously missing in the JSON-only logic
+    target_landmark = sample_row.get('extracted_noun')
+    applied_landmark_mask = False
 
-    # Sort landmarks by length, longest first, to avoid partial masking
-    sorted_landmarks = sorted(list(all_landmark_names), key=len, reverse=True)
+    if target_landmark and str(target_landmark).lower() in original_text.lower():
+        pattern = re.compile(re.escape(str(target_landmark)), re.IGNORECASE)
+        landmark_masked_text = pattern.sub("[MASK]", original_text)
+        
+        variants.append({
+            "type": "mask_landmark",
+            "text": landmark_masked_text,
+            "removed_element": target_landmark
+        })
+        applied_landmark_mask = True
+    else:
+        # Fallback to the original text if no noun was extracted
+        landmark_masked_text = original_text
 
-    for p_name in sorted_landmarks:
-        if p_name and p_name != "None" and p_name.lower() in original_text.lower():
-            # Use regex for case-insensitive replacement to catch "Church" vs "church"
-            pattern = re.compile(re.escape(p_name), re.IGNORECASE)
-            single_mask = pattern.sub("[MASK]", original_text)
-            
-            variants.append({
-                "type": "mask_landmark",
-                "text": single_mask,
-                "removed_element": p_name
-            })
-            
-            landmark_masked_text = pattern.sub("[MASK]", landmark_masked_text)
-            applied_landmark_mask = True
-
-    # 2. Directional Masking Logic
+    # 2. Directional Masking (Kept the original regex because it was working fine)
     directions_regex = r"\b(north|south|east|west|northeast|northwest|southeast|southwest)\b"
     dir_masked_text = re.sub(directions_regex, "[DIR_MASK]", original_text, flags=re.IGNORECASE)
     
@@ -55,55 +45,54 @@ def generate_variants(sample):
             "removed_element": "cardinal_directions"
         })
 
-    # 3. HARD MODE: Mask Both (Landmarks + Directions)
-    # This combines both masks into a single, highly ambiguous instruction
+    # 3. Mask Both (Now works in Philly because applied_landmark_mask will be True)
     if applied_landmark_mask and dir_masked_text != original_text:
         hard_mode_text = re.sub(directions_regex, "[DIR_MASK]", landmark_masked_text, flags=re.IGNORECASE)
         variants.append({
             "type": "mask_both",
             "text": hard_mode_text,
-            "removed_element": "landmarks_and_directions",
-            "research_stage": "advanced" # Flag to remind team to skip for now
+            "removed_element": "landmarks_and_directions"
         })
 
     return variants
 
+
 if __name__ == "__main__":
-    # We use the keys from CITY_SETTINGS: ['manhattan', 'pittsburgh', 'philadelphia']
     cities_to_process = list(config.CITY_SETTINGS.keys())
 
     for city in cities_to_process:
         print(f"\n🏙️  Processing: {city.upper()}")
-        
-        # Set global context so config getters work correctly
         config.CURRENT_CITY = city
         
-        # Resolve Paths using config settings
+        # FIXED: Points to the Silver Standard Parquet instead of Raw JSON
         city_dir = os.path.join(config.BASE_DIR, "data", city)
-        input_json = os.path.join(city_dir, config.CITY_SETTINGS[city]["raw_json"])
-        graph_path = config.get_graph_path()
+        input_parquet = os.path.join(city_dir, f"{city}_silver_standard.parquet")
         output_json = os.path.join(city_dir, "underspecified_variants.json")
 
-        if not os.path.exists(input_json):
-            print(f"❌ Error: {input_json} not found. Skipping...")
+        if not os.path.exists(input_parquet):
+            print(f"❌ Error: {input_parquet} not found. Run batch_labeling.py first!")
             continue
 
-        # Load data using our specialized RVS parser
-        print(f"📂 Loading {city} data...")
-        data = load_rvs_accurate(input_json, graph_path)
+        # Load the Silver Standard
+        print(f"📂 Loading {city} Silver Standard...")
+        df = pd.read_parquet(input_parquet)
         
         all_experiments = []
 
-        print(f"🎭 Generating variants for {len(data)} samples...")
-        for sample in data:
-            sample_variants = generate_variants(sample)
+        # We only want to generate variants for 'Answerable' rows to keep the test clean
+        answerable_df = df[df['oracle_label'] == 'Answerable']
+
+        print(f"🎭 Generating variants for {len(answerable_df)} answerable samples...")
+        for _, row in answerable_df.iterrows():
+            # Convert row to dict for the generator
+            sample_dict = row.to_dict()
+            sample_variants = generate_variants(sample_dict)
             
-            # Store everything needed for the Oracle later
             all_experiments.append({
-                "sample_id": sample.get('sample_number', 'N/A'),
+                "sample_id": sample_dict.get('sample_id', 'N/A'),
                 "city": city,
-                "original_text": sample.get('instruction', ''),
-                "rvs_goal_point": sample.get('goal_point'), # Parser used 'goal_point'
+                "original_text": sample_dict.get('instruction', ''),
+                "gold_goal_node": sample_dict.get('gold_goal_node'),
                 "variants": sample_variants
             })
 
@@ -113,4 +102,4 @@ if __name__ == "__main__":
         
         print(f"✅ Saved {city.upper()} variants to {output_json}")
 
-    print("\n🚀 All cities successfully underspecified!")
+    print("\n🚀 All cities successfully underspecified via Silver Standard logic!")

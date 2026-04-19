@@ -42,60 +42,53 @@ class CategoricalMatcher:
 matcher = CategoricalMatcher()
 
 
-
-
-
 def extract_rvs_target(text: str) -> tuple:
     """
-    Unified Extractor (v3): Uses right-most anchor matching to bypass 
-    initial directional instructions (e.g., 'at the west') and isolate 
-    the actual landmark name (e.g., 'at Dunkin'). 
-    
-    Clips the span at spatial boundaries (on, which is, etc.) and 
-    normalizes the result into a (Category, Noun) tuple.
-    
-    Unified Extractor: Captures full brand spans, ignores directional fluff, 
-    and clips at spatial boundaries (on, at the corner, etc.)
+    Final Production Logic: Unified for Manhattan, Pittsburgh, and Philly.
+    Uses direct pattern matching for high precision.
     """
-    
-    # 1. Clean
     text_clean = text.replace("’", "'").replace(" ,", ",")
-
-    # 2. THE FIX: Find the LAST 'at' or 'to' before the landmark
-    # This ignores "at the west" and finds "at Ben & Jerry's"
-    potential_anchors = [m.start() for m in re.finditer(r"\b(at|to|me at|is at)\b", text_clean, re.IGNORECASE)]
     
-    if not potential_anchors:
-        return "UNKNOWN", "UNKNOWN"
+    # 1. Direct Pattern Match: "at the [TARGET] on/is/at..."
+    # This covers the majority of Manhattan and Pitt instructions perfectly.
+    direct_match = re.search(r"at\s+the\s+([\w\s]+?)\b\s+(?:on|is|at|near|just|,|\.)", text_clean, re.IGNORECASE)
     
-    # We take the last anchor found in the sentence
-    start_idx = potential_anchors[-1]
-    # Move the pointer past the anchor word itself (e.g., skip 'at ')
-    span = re.sub(r"^(at|to|me at|is at)\s+", "", text_clean[start_idx:], flags=re.IGNORECASE)
-
-    # 3. Clipping (No 'at' or 'the' here!)
-    stops = [
-        # Spatial boundaries
-        r"\b(?:on|near|across|which|is|south|north|west|east|corner|end|middle)\b",
-        # Template boundaries (The "Fluff" Fix)
-        r"\b(?:and|let's|lets|very|place|to|the)\b", 
-        r",", r"\."
-    ]
+    if direct_match:
+        noun = direct_match.group(1).strip()
+    else:
+        # 2. Fallback to Robust Anchor/Stop logic
+        anchors = r"\b(at|to|me at|find me at|is at)\b"
+        matches = list(re.finditer(anchors, text_clean, re.IGNORECASE))
         
-    earliest_stop = len(span)
-    for stop_pattern in stops:
-        s_match = re.search(stop_pattern, span, re.IGNORECASE)
-        if s_match and s_match.start() < earliest_stop:
-            earliest_stop = s_match.start()
-    
-    noun = span[:earliest_stop].strip()
+        if matches:
+            start_idx = matches[-1].end()
+            span = text_clean[start_idx:].strip()
+        else:
+            the_matches = list(re.finditer(r"\bthe\b", text_clean, re.IGNORECASE))
+            span = text_clean[the_matches[-1].start():].strip() if the_matches else text_clean
+            
+        stops = [r"\b(?:on|near|across|which|is|south|north|west|east|corner|end|middle|just|before|after|past|beside|behind|of)\b", r",", r"\."]
+        earliest_stop = len(span)
+        for stop_pattern in stops:
+            s_match = re.search(stop_pattern, span, re.IGNORECASE)
+            if s_match and s_match.start() > 0 and s_match.start() < earliest_stop:
+                earliest_stop = s_match.start()
+        
+        noun = span[:earliest_stop].strip()
+        noun = re.sub(r"^(the|a|an)\s+", "", noun, flags=re.IGNORECASE).strip()
 
-    # 4. Cleanup
-    noun = re.sub(r"^(the|a|an)\s+", "", noun, flags=re.IGNORECASE)
-    
-    # 5. Resolve Category
-    category = matcher.get_category(noun)
-    return category, noun.strip()
+    # 3. Final article/direction scrub
+    noun = re.sub(r"^(the|a|an)\s+", "", noun, flags=re.IGNORECASE).strip()
+
+    # 4. Resolve Category using the module-level matcher
+    try:
+        from src.extraction_utils import matcher
+        category = matcher.get_category(noun)
+    except:
+        category = "UNKNOWN"
+
+    return category, noun
+
 
 def normalize_landmark_category(extracted_noun, threshold=80):
     """
