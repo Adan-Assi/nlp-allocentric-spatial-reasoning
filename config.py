@@ -25,7 +25,7 @@ CURRENT_CITY = "manhattan" # Default
 CITY_SETTINGS = {
     "manhattan": {
         "success_radius": 80,
-        "salience_ratio": 0.7,
+        "salience_ratio": 0.7, #attempt
         "raw_json": "manhattan.json", 
         "graph_file": "manhattan_graph.gpickle",
         "poi_file": "manhattan_poi.pkl",
@@ -34,7 +34,7 @@ CITY_SETTINGS = {
     },
     "pittsburgh": {
         "success_radius": 100,
-        "salience_ratio": 0.5,
+        "salience_ratio": 0.5, #attempt
         "raw_json": "pittsburgh.json",
         "graph_file": "pittsburgh_graph.gpickle",
         "poi_file": "pittsburgh_poi.pkl",
@@ -43,7 +43,7 @@ CITY_SETTINGS = {
     },
     "philadelphia": {
         "success_radius": 250,  # Matches the RVS "Coarse" baseline for Philly
-        "salience_ratio": 0.5,  # More lenient due to Philly's sparser POI distribution
+        "salience_ratio": 0.5, #attempt
         "raw_json": "philadelphia.json",
         "graph_file": "philadelphia_graph.gpickle",
         "poi_file": "philadelphia_poi.pkl",
@@ -130,7 +130,10 @@ LANDMARK_GROUPS = {
     "PHARMACY": {"amenity": "pharmacy", "brand": "yes"},
     "BANK": {"amenity": "bank", "brand": "yes"},
     "CAFE": {"amenity": "cafe", "brand": "yes"},
-    "PARKING": {"amenity": ["parking", "bicycle_parking", "motorcycle_parking"]},
+    "PARKING": {
+        "amenity": ["parking", "bicycle_parking", "motorcycle_parking"],
+        "parking": ["surface", "multi-storey", "underground"] # Add this!
+    },
     "MUSEUM": {"tourism": "museum", "historic": ["museum", "yes"]}, # Expanded historic tag for better coverage
     "WATER": {"natural": "water", "waterway": "river"},
     "BENCH": {"amenity": "bench"},
@@ -156,7 +159,7 @@ LANDMARK_GROUPS = {
     },
 
     "BROADWAY": {"highway": "primary", "name": "Broadway"}, # Freq: 373
-    "POST": {"amenity": "post_office"}, # Freq: 346
+    "POST": {"amenity": ["post_office", "post_box"]}, # Freq: 346
     "BAR": {"amenity": ["bar", "pub"]}, # Freq: 338
     "SCHOOL": {"amenity": ["school", "university", "college"]}, # Freq: 331
     "LIBRARY": {"amenity": "library"}, # Freq: 326
@@ -178,6 +181,17 @@ LANDMARK_GROUPS = {
 
 # Use these words to trigger the OSM tag searches in LANDMARK_GROUPS
 TEXT_TO_GROUP_MAP = {
+    "post box": "POST",
+    "waste basket": "BENCH",
+    "car sharing": "PARKING",
+    "convenience shop": "SHOP",
+    "alcohol shop": "SHOP",
+    "community centre": "OFFICE",
+    "social facility": "OFFICE",
+    "parking lot": "PARKING",
+    "parking entrance": "PARKING",
+    "garage": "PARKING",
+    "atm": "SHOP",
     "supermarket": "SHOP", "grocery": "SHOP", "deli": "SHOP", "pharmacy": "PHARMACY",
     "chemists": "PHARMACY", "drugstore": "PHARMACY", "wine": "SHOP", "vitamins": "SHOP",
     "synagogue": "CHURCH", "temple": "CHURCH", "mosque": "CHURCH",
@@ -207,6 +221,7 @@ TEXT_TO_GROUP_MAP = {
     "market": "MARKET",
     "bicycle parking": "BICYCLE",
     "starbucks": "CAFE",
+    "wendy's": "RESTAURANT",
     "dunkin": "CAFE",
     "peet's": "CAFE",
     "ben & jerry's": "SHOP",
@@ -219,14 +234,22 @@ TEXT_TO_GROUP_MAP = {
     "target": "STORE",
     "walmart": "STORE",
     "mcdonald's": "RESTAURANT",
-    "burger king": "RESTAURANT"
+    "burger king": "RESTAURANT",
+    "papa john's": "FOOD",
+    "papa johns": "FOOD",
+    "dentist": "OFFICE",
+    "aspen dental": "OFFICE",
+    "pep boys": "SHOP",
+    "gift shop": "SHOP"
 }
 
 # Standard tags for broad fallback searches
 # Updated to include all critical RVS-identified OSM keys
-POI_SEARCH_COLUMNS = ['amenity', 'tourism', 'leisure', 'shop', 'historic', 
-    'name', 'brand', 'building', 'building:material', 
-    'roof:shape', 'roof:material', 'colour', 'building:colour', 'roof:colour'
+POI_SEARCH_COLUMNS = [
+    'amenity', 'tourism', 'leisure', 'shop', 'historic', 
+    'name', 'brand', 'building', 'office', 'craft', 'healthcare',
+    'building:material', 'roof:shape', 'roof:material', 
+    'colour', 'building:colour', 'roof:colour', 'parking'
 ]
 
 # --- Phase 5: Scientific Evaluation Constants ---

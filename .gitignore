@@ -45,3 +45,8 @@ appendix_rescued_samples_v4.csv
 # Ignore Jupyter notebook checkpoints and cache
 .ipynb_checkpoints/
 notebooks/cache/
+
+# Slurm Log files
+logs/
+
+venv_linux/

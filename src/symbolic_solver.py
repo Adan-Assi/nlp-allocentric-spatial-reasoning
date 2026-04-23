@@ -12,6 +12,9 @@ import config
 from src.oracle_engine import OracleEngine
 import src.utils as utils
 
+from src.extraction_utils import extract_rvs_target
+
+
 class SymbolicSolver:
     """
     Symbolic graph operations for RVS map queries.
@@ -34,18 +37,15 @@ class SymbolicSolver:
         # This replaces the hardcoded reliance on config.DISTANCE_FIXED_BUFFER
         self.search_radius = search_radius if search_radius is not None else config.DISTANCE_FIXED_BUFFER
 
-        # --- Pre-compute SCC for Instant Reachability ---
-        # We map every node ID to a 'Component ID' (an integer)
-        # Nodes in the same component can reach each other.
-        self.scc_lookup = {}
-        components = list(nx.strongly_connected_components(self.G))
-        for i, component in enumerate(components):
-            for node in component:
-                self.scc_lookup[node] = i
+        # --- Shared Connectivity Map (for Instant Reachability) ---
+        # We reference the map already built by the Oracle to ensure 
+        # consistency and save memory.
+        self.scc_lookup = oracle.scc_lookup
         
-        # DELETE PRINT
-        print(f"✅ Solver Initialized: Found {len(components)} isolated graph components.")
-
+        # Verify connectivity status
+        num_comp = len(set(self.scc_lookup.values())) if self.scc_lookup else 0
+        print(f"✅ Solver Initialized: Using Oracle's map with {num_comp} components.")
+        
         # Salvaged properties for the Dijkstra logic
         self.nodes = self.G.nodes(data=True)
         self.edges = self.G.adj
@@ -187,9 +187,26 @@ class SymbolicSolver:
     def check_reachability_scc(self, start_node: str, target_node: str) -> bool:
         """
         Wrapper for the shared SCC utility. 
-        Verifies if a path exists between two nodes in O(1) time.
+        Note: We pull the lookup table from the oracle instance.
         """
-        return utils.is_reachable_fast(self.scc_lookup, start_node, target_node)
+        
+        return utils.is_reachable_fast(self.oracle.scc_lookup, start_node, target_node)
+
+    #aaaaaaaaaaaaaaaa
+    def _apply_directional_filter(
+        self, candidates: list, start_node: str, target_dir: str
+    ) -> list:
+        """Filter candidates by direction, keeping originals on total miss (soft fallback)."""
+        if not target_dir or not candidates:
+            return candidates
+        cand_ids = [c['node_id'] for c in candidates]
+        filtered_ids = set(
+            self.oracle.filter_candidates_by_direction(start_node, cand_ids, target_dir)
+        )
+        if not filtered_ids:
+            return candidates  # soft fallback: direction killed everything, keep all
+        return [c for c in candidates if c['node_id'] in filtered_ids]
+
 
     def solve(self, instruction_text: str, start_node: str) -> dict:
         """
@@ -197,66 +214,177 @@ class SymbolicSolver:
         Uses the 1500m 'Elbow' Horizon and O(1) SCC Reachability.
         """
 
-        from src.extraction_utils import extract_rvs_target
-        
-        # 1. Extraction: Get Category + Noun
-        category, raw_noun = extract_rvs_target(instruction_text)
-        tags = config.LANDMARK_GROUPS.get(category, {})
-        
-        # 2. Candidate Resolution (Phase A: Strict Tag Search)
-        start_data = self.G.nodes[start_node]
-        candidates = self.oracle.resolve_nearby_candidates(
-            tags, 
-            start_data['y'], 
-            start_data['x'], 
-            radius_m=config.GLOBAL_SEARCH_HORIZON_METERS,
-            landmark_name=raw_noun
-        )
+        # ------ Phase A: Candidate Resolution ------
 
-        # --- NEW: FALLBACK LOGIC ---
-        # If Category search fails, try a fuzzy name search globally in the area
+        category, raw_noun, target_dir = extract_rvs_target(instruction_text)
+        tags        = config.LANDMARK_GROUPS.get(category, {})
+        start_data  = self.G.nodes[start_node]
+        lat, lon    = start_data['y'], start_data['x']
+        horizon     = config.GLOBAL_SEARCH_HORIZON_METERS
+
+        metadata = {
+            "extracted_category": category,
+            "extracted_noun":     raw_noun,
+        }
+
+        # Step 1 — Strict: category + name + direction
+        candidates = self.oracle.resolve_nearby_candidates(
+            tags, lat, lon, radius_m=horizon, landmark_name=raw_noun
+        )
+        candidates = self._apply_directional_filter(candidates, start_node, target_dir)
+
+        # Step 2 — Philly fallback: category + direction, no name
+        if not candidates:
+            candidates = self.oracle.resolve_nearby_candidates(
+                tags, lat, lon, radius_m=horizon, landmark_name=None
+            )
+            candidates = self._apply_directional_filter(candidates, start_node, target_dir)
+
+        # Step 3 — Last resort: global fuzzy name search
         if not candidates and raw_noun:
             fallback_node = self.oracle.resolve_landmark(
-                raw_noun, 
-                context_node=start_node, 
-                radius_m=config.GLOBAL_SEARCH_HORIZON_METERS
+                raw_noun, context_node=start_node, radius_m=horizon
             )
             if fallback_node:
-                # Wrap it in the candidate format the rest of the function expects
                 node_data = self.G.nodes[fallback_node]
-                candidates = [{"node_id": fallback_node, "coords": (node_data['y'], node_data['x'])}]
-        # ---------------------------
+                d = utils.haversine(lat, lon, node_data['y'], node_data['x'])
+                candidates = [{"node_id": fallback_node,
+                            "coords": (node_data['y'], node_data['x']),
+                            "dist": d}]
 
-        # 3. Label Assignment (The Silver Standard)
+        # Ensure every candidate has 'dist' (Steps 1/2 may omit it)
+        for c in candidates:
+            if 'dist' not in c:
+                clat, clon = c['coords']
+                c['dist'] = utils.haversine(lat, lon, clat, clon)
+
+        # ------ Phase B: Zero-candidate exit ------
+
+        count = len(candidates)
+        metadata["candidate_count"] = count
+
+        if count == 0:
+            return {**metadata, "state": config.STATE_CONTRADICTORY}
+
+        # ------ Phase C: RVS-Aligned Tiered Labeling ------
+
+        if count > 1:
+            sorted_cands = sorted(candidates, key=lambda x: x.get('dist', 9999))
+            if sorted_cands[0]['dist'] <= 250:
+                candidates = [sorted_cands[0]]          # nearest within success zone wins
+            else:
+                return {**metadata, "state": config.STATE_AMBIGUOUS}
+
+        # ------ Phase D: Reachability ------
+
+        target_node = candidates[0]['node_id']
+
+        # trivial case: already at destination
+        if target_node == start_node:
+            return {**metadata, "state": config.STATE_ANSWERABLE, "target_node": target_node}
+
+        state = (config.STATE_ANSWERABLE
+                if self.check_reachability_scc(start_node, target_node)
+                else config.STATE_CONTRADICTORY)
+        return {**metadata, "state": state, "target_node": target_node}
+
+
+    #possible delete
+    def solve_OLD(self, instruction_text: str, start_node: str) -> dict:
+        """
+        Master Controller: Translates text into a Symbolic State.
+        Uses the 1500m 'Elbow' Horizon and O(1) SCC Reachability.
+        """
+
+        # ------ Phase A: Candidate Resolution ------
+        
+        # 1. Extraction
+        category, raw_noun, target_dir = extract_rvs_target(instruction_text)
+        tags = config.LANDMARK_GROUPS.get(category, {})
+        start_data = self.G.nodes[start_node]
+        lat, lon = start_data['y'], start_data['x']
+        horizon = config.GLOBAL_SEARCH_HORIZON_METERS
+
+        # 2. Step 1: Strict Search (Category + Name + Direction)
+        # Most instructions in Manhattan and Pitt will resolve here.
+        candidates = self.oracle.resolve_nearby_candidates(
+            tags, lat, lon, radius_m=horizon, landmark_name=raw_noun
+        )
+        if target_dir and candidates:
+            cand_ids = [c['node_id'] for c in candidates]
+            filtered_ids = self.oracle.filter_candidates_by_direction(start_node, cand_ids, target_dir)
+            
+            # --- MODIFICATION: SOFT DIRECTIONAL FALLBACK ---
+            if not filtered_ids:
+                # If direction killed everything, keep original candidates but log it
+                # This prevents a 150m 'Success' from becoming a 'Contradictory'
+                pass 
+            else:
+                candidates = [c for c in candidates if c['node_id'] in filtered_ids]
+
+
+        # 3. Step 2: Philly Fallback (Category + Direction, NO Name)
+        # If Step 1 found nothing, the description is likely "General" (e.g., "the cafe").
+        if not candidates:
+            candidates = self.oracle.resolve_nearby_candidates(
+                tags, lat, lon, radius_m=horizon, landmark_name=None 
+            )
+            if target_dir and candidates:
+                cand_ids = [c['node_id'] for c in candidates]
+                filtered_ids = self.oracle.filter_candidates_by_direction(start_node, cand_ids, target_dir)
+                candidates = [c for c in candidates if c['node_id'] in filtered_ids]
+
+        for c in candidates:
+            if 'dist' not in c:
+                target_lat, target_lon = c['coords']
+                c['dist'] = utils.haversine(lat, lon, target_lat, target_lon)
+
+
+        # 4. Step 3: Last Resort (Global Fuzzy Name Search)
+        # If Category matches failed, try a fuzzy global search for the raw text.
+        if not candidates and raw_noun:
+            fallback_node = self.oracle.resolve_landmark(
+                raw_noun, context_node=start_node, radius_m=horizon
+            )
+            if fallback_node:
+                node_data = self.G.nodes[fallback_node]
+                # Calculate distance so the Salience Filter doesn't crash if count > 1
+                d = utils.haversine(lat, lon, node_data['y'], node_data['x'])
+                candidates = [{"node_id": fallback_node, "coords": (node_data['y'], node_data['x']), "dist": d}]
+        
+        # ------ Phase B: Label Assignment ------
+        
+        # Label Assignment (The Silver Standard)
         count = len(candidates)
         metadata = {
-            "extracted_category": category, # Renamed from 'category'
-            "extracted_noun": raw_noun,      # Renamed from 'noun'
+            "extracted_category": category,
+            "extracted_noun": raw_noun,
             "candidate_count": count
         }
 
         if count == 0:
             return {**metadata, "state": config.STATE_CONTRADICTORY}
-        
-        # 3. Handle Candidate Density (The Salience Filter)
-        if count > 1:
-            # Sort candidates by distance
-            sorted_cands = sorted(candidates, key=lambda x: utils.haversine_vectorized(
-                start_data['y'], start_data['x'], x['coords'][0], x['coords'][1]
-            ))
-            
-            d1 = utils.haversine_vectorized(start_data['y'], start_data['x'], sorted_cands[0]['coords'][0], sorted_cands[0]['coords'][1])
-            d2 = utils.haversine_vectorized(start_data['y'], start_data['x'], sorted_cands[1]['coords'][0], sorted_cands[1]['coords'][1])
+       
+       
+        # ------ Phase C: RVS-Aligned Tiered Labeling ------
 
-            # Precedent: Paz-Argaman et al. (2020) "Gold Zone" 
-            # If the closest is within 200m and at least twice as close as the second option
-            if d1 < 200 and d1 < (d2 * config.get_salience_ratio()):
+        # Handle Candidate Density (The Salience Filter)
+        if count > 1:
+            # Sort by distance
+            sorted_cands = sorted(candidates, key=lambda x: x.get('dist', 9999))
+            d1 = sorted_cands[0]['dist']
+            
+            # 1. We use the 250m Coarse-grained accuracy as the 'Answerable' threshold
+            # This aligns with Metric #2 from the paper.
+            if d1 <= 250: 
+                # Even if there's a d2, if d1 is within the 250m 'Success zone',
+                # we treat it as the intended target.
                 candidates = [sorted_cands[0]]
             else:
-                # Still truly ambiguous (e.g., two cafes on the same block)
                 return {**metadata, "state": config.STATE_AMBIGUOUS}
+                    
+        # ------ Reachability Check for the Final Candidate ------
 
-        # 4. Final Verification: Reachability
         target_node = candidates[0]['node_id']
         if self.check_reachability_scc(start_node, target_node):
             return {**metadata, "state": config.STATE_ANSWERABLE, "target_node": target_node}

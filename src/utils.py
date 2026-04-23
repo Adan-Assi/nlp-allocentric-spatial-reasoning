@@ -136,19 +136,45 @@ def haversine_vectorized(lat1, lon1, lat2, lon2):
     """
     Calculates the great circle distance between two points 
     on the earth (specified in decimal degrees).
+    Uses high-performance NumPy vectorization for large-scale spatial queries.
     """
     # Earth radius in meters
     R = 6371000
     
-    # Convert decimal degrees to radians 
-    lat1, lon1, lat2, lon2 = map(np.radians, [lat1, lon1, lat2, lon2])
+    # Use NumPy's native radian conversion (fast for arrays)
+    # This replaces the slow map(np.radians, ...) call we previously had
+    lat1, lon1, lat2, lon2 = np.radians(lat1), np.radians(lon1), np.radians(lat2), np.radians(lon2)
 
     # Haversine formula 
     dlat = lat2 - lat1 
     dlon = lon2 - lon1 
+    
+    # a = sin²(Δφ/2) + cos φ1 ⋅ cos φ2 ⋅ sin²(Δλ/2)
     a = np.sin(dlat/2.0)**2 + np.cos(lat1) * np.cos(lat2) * np.sin(dlon/2.0)**2
-    c = 2 * np.arcsin(np.sqrt(a)) 
+    
+    # c = 2 ⋅ atan2( √a, √(1−a) )
+    # Using arctan2 is more robust than arcsin for floating point errors
+    c = 2 * np.arctan2(np.sqrt(a), np.sqrt(1 - a)) 
+    
     return R * c
+
+
+def haversine(lat1, lon1, lat2, lon2):
+    """
+    Calculates the great circle distance between two points 
+    on the earth in meters (scalar version).
+    """
+    R = 6371000  # Earth radius in meters
+    
+    phi1, phi2 = math.radians(lat1), math.radians(lat2)
+    dphi = math.radians(lat2 - lat1)
+    dlambda = math.radians(lon2 - lon1)
+    
+    a = math.sin(dphi/2)**2 + math.cos(phi1)*math.cos(phi2)*math.sin(dlambda/2)**2
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+    
+    return R * c
+
 
 def apply_geodesic_gatekeeper(agent_coords, candidates_df, radius=1500):
     """
@@ -173,18 +199,24 @@ def apply_geodesic_gatekeeper(agent_coords, candidates_df, radius=1500):
 
 # --- CONNECTIVITY & GRAPH OPTIMIZATION ---
 
-def get_scc_map(G):
+def get_connectivity_map(G):
     """
     Generates a mapping of Node ID -> Component ID.
-    Two nodes can reach each other if and only if they share the same Component ID.
+    Uses Undirected components to represent physical urban connectivity.
     """
-    scc = list(nx.strongly_connected_components(G))
-    # Create a dictionary where key is node_id and value is the index of its SCC
-    scc_map = {}
-    for i, component in enumerate(scc):
+    # 'Strongly' implies directionality (Car logic)
+    # 'Connected' implies physical access (Human logic)
+    undirected_G = G.to_undirected()
+
+    # Convert to undirected to match the origianl RVS paper's "Physical Connectivity"
+    components = list(nx.connected_components(undirected_G))
+    
+    conn_map = {}
+    for i, component in enumerate(components):
         for node in component:
-            scc_map[node] = i
-    return scc_map
+            conn_map[node] = i
+    return conn_map, len(components)
+
 
 def is_reachable_fast(scc_map, start_node, end_node):
     """

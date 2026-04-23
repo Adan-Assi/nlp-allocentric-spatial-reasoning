@@ -1,141 +1,265 @@
-import spacy
 import config
 import re
 from thefuzz import process, fuzz
+import unicodedata
 
-# Load the model once at the module level
-nlp = spacy.load("en_core_web_sm")
+# ---------------------------------------------------------------------------
+# Module-level compiled regexes
+# ---------------------------------------------------------------------------
+
+_DIR_RE = re.compile(r"\b(north|south|east|west)\b", re.IGNORECASE)
+
+_ANCHOR_RE = re.compile(
+    r"\b(at|to|me\s+at|find\s+me\s+at|is\s+at|located\s+at|head\s+to|go\s+to|walk\s+to)\b",
+    re.IGNORECASE,
+)
+
+# "at the X" shortcut — only when followed by a hard boundary
+_AT_THE_RE = re.compile(
+    r"\bat\s+the\s+([\w\s]{2,40}?)\s*(?=on\b|is\b|at\b|near\b|just\b|,|\.|\band\b|$)",
+    re.IGNORECASE,
+)
+
+# Stop patterns that terminate a noun phrase
+#_STOPS = re.compile(
+#    r"\b(?:on|near|across|which|is|south|north|west|east|corner|end|middle|"
+#    r"just|before|after|past|beside|behind|of|directly|close|towards|toward|"
+#    r"where|if|that|but|and|or|so|when|while|until)\b"
+ #   r"|[,\.\!\?]",
+  #  re.IGNORECASE,
+#)
+_STOPS = re.compile(
+    r"\b(?:on|near|across|which|is|south|north|west|east|corner|end|middle|"
+    r"just|before|after|past|beside|behind|of|directly|close|towards|toward|"
+    r"where|if|that|but|and|or|so|when|while|until|than|any|we'll|will|meet|"
+    r"get|some|and|with|there|be|a|an|the|here|see|at|about|you|me|my)\b"
+    r"|[,\.\!\?\?]",
+    re.IGNORECASE,
+)
+
+# Noise suffixes to strip AFTER span extraction
+_SUFFIX_NOISE = re.compile(
+    r"\s+(?:directly|right|just|close|nearby|down|up|over|around|there|here|"
+    r"a\s+few\s+steps?\s+\w+|close\s+to\s+the\s+road|next\s+to\s+\w+)\s*$",
+    re.IGNORECASE,
+)
+
+# Leading articles
+_ARTICLE_RE = re.compile(r"^(the|a|an)\s+", re.IGNORECASE)
+
+# Clause-fragment red flags: if the noun contains these, it's junk
+_JUNK_PATTERNS = re.compile(
+    r"\b(if|where|find|go|you|your|it\s+and|continued|locale|destination|"
+    r"steps?\s+away|close\s+the)\b",
+    re.IGNORECASE,
+)
+
+# Road/street references — routed to ROAD category instead of POI fuzzy search
+_ROAD_SUFFIXES = re.compile(
+    r"\b(street|st|avenue|ave|boulevard|blvd|drive|dr|road|rd|lane|ln|"
+    r"place|pl|square|sq|court|ct|way|highway|hwy|route|circle|terrace)\b",
+    re.IGNORECASE,
+)
+
+STOP_WORDS = frozenset({
+    'the', 'a', 'an', 'and', 'meat', 'it', 'this', 'that',
+    'here', 'there', 'somewhere', 'anywhere', 'place',
+})
+
+MAX_NOUN_WORDS = 5  # spans longer than this are almost certainly clause fragments
+
+
+# ---------------------------------------------------------------------------
+# Internal helpers (module-level, not class methods)
+# ---------------------------------------------------------------------------
+
+def _normalize(text: str) -> str:
+    """Unicode-normalize and clean smart quotes/punctuation."""
+    text = unicodedata.normalize("NFKC", text)
+    return text.replace("\u2019", "'").replace("\u2018", "'").replace(" ,", ",")
+
+
+def _extract_span(text: str) -> str | None:
+    """
+    Pull the raw noun span from `text` using anchor → stop logic.
+    Returns None if nothing plausible is found.
+    """
+    # Strategy 1: "at the X <hard boundary>"
+    m = _AT_THE_RE.search(text)
+    if m:
+        return m.group(1).strip()
+
+    # Strategy 2: last anchor verb → grab what follows
+    anchors = list(_ANCHOR_RE.finditer(text))
+    if anchors:
+        start = anchors[-1].end()
+        span = text[start:].strip()
+    else:
+        # Strategy 3: last occurrence of "the" as a weak anchor
+        the_hits = list(re.finditer(r"\bthe\b", text, re.IGNORECASE))
+        span = text[the_hits[-1].start():].strip() if the_hits else text.strip()
+
+    # Trim at the first stop word that isn't at position 0
+    stop_m = _STOPS.search(span)
+    if stop_m and stop_m.start() > 0:
+        span = span[:stop_m.start()].strip()
+
+    return span if span else None
+
+
+# ---------------------------------------------------------------------------
+# CategoricalMatcher
+# ---------------------------------------------------------------------------
 
 class CategoricalMatcher:
+    """Maps extracted noun phrases to canonical LANDMARK_GROUPS categories."""
+
     def __init__(self):
-        # We use the TEXT_TO_GROUP_MAP from config
-        # This maps "synagogue" -> "CHURCH", "pub" -> "BAR", etc.
+        # "synagogue" -> "CHURCH", "pub" -> "BAR", etc.
         self.text_lookup = config.TEXT_TO_GROUP_MAP
-        
-        # We also want the Groups themselves to be triggers 
-        # (e.g., if the text says "Meet at the BANK", it should trigger "BANK")
+        # Allows the group name itself as a trigger: "bank" -> "BANK"
         self.group_names = {k.lower(): k for k in config.LANDMARK_GROUPS.keys()}
 
-    def get_category(self, text):
+
+    def get_category(self, text: str) -> str:
         if not text:
             return "UNKNOWN"
-        
+
         text_lower = text.lower().strip()
-        
-        # 1. Check if the word is a synonym in our Map (e.g., "deli" -> "SHOP")
+
+        # 1. Exact synonym match (Fast)
         if text_lower in self.text_lookup:
             return self.text_lookup[text_lower]
-        
-        # 2. Check if the word is the Group Name itself (e.g., "pharmacy" -> "PHARMACY")
+
+        # 2. Group name match (Fast)
         if text_lower in self.group_names:
             return self.group_names[text_lower]
-        
-        # 3. Partial Match for compound brands (e.g., "Starbucks" contains "cafe" logic)
-        # We check if any of our trigger words exist inside the extracted text
+
+        # 3. Partial/embedded trigger match
         for trigger, group in self.text_lookup.items():
             if re.search(rf"\b{re.escape(trigger)}\b", text_lower):
                 return group
-                
+
+        # 4. THE FUZZY SAFETY NET (The missing piece!)
+        # If we get here, it's either a typo or a complex phrase.
+        # We call the normalization function to snap it to the closest group.
+        fuzzy_group = normalize_landmark_category(text_lower)
+        
+        if fuzzy_group in self.group_names:
+            return fuzzy_group
+
         return "UNKNOWN"
 
-# Instantiate the matcher
+
+# Singleton — instantiated once after the class definition
 matcher = CategoricalMatcher()
 
 
+# ---------------------------------------------------------------------------
+# Primary public interface
+# ---------------------------------------------------------------------------
+
 def extract_rvs_target(text: str) -> tuple:
     """
-    Final Production Logic: Unified for Manhattan, Pittsburgh, and Philly.
-    Uses direct pattern matching for high precision.
+    Extracts (category, noun, direction) from a raw RVS instruction.
+
+    Hardened against:
+    - clause fragments masquerading as nouns
+    - trailing noise adverbs / prepositional phrases
+    - street/road references (routed to ROAD category)
+    - overly long spans that are clearly not landmark names
+
+    Returns:
+        (category: str, noun: str | None, direction: str | None)
+        direction is one of 'N', 'S', 'E', 'W' or None.
+        noun is None when no valid landmark could be extracted.
     """
-    text_clean = text.replace("’", "'").replace(" ,", ",")
-    
-    # 1. Direct Pattern Match: "at the [TARGET] on/is/at..."
-    # This covers the majority of Manhattan and Pitt instructions perfectly.
-    direct_match = re.search(r"at\s+the\s+([\w\s]+?)\b\s+(?:on|is|at|near|just|,|\.)", text_clean, re.IGNORECASE)
-    
-    if direct_match:
-        noun = direct_match.group(1).strip()
-    else:
-        # 2. Fallback to Robust Anchor/Stop logic
-        anchors = r"\b(at|to|me at|find me at|is at)\b"
-        matches = list(re.finditer(anchors, text_clean, re.IGNORECASE))
-        
-        if matches:
-            start_idx = matches[-1].end()
-            span = text_clean[start_idx:].strip()
+    text = _normalize(text)
+
+    # --- Direction ---
+    direction = None
+    dm = _DIR_RE.search(text)
+    if dm:
+        direction = dm.group(1).upper()[0]
+
+    # --- Span extraction ---
+    span = _extract_span(text)
+    if span is None:
+        return "UNKNOWN", None, direction
+
+    # --- Strip leading article ---
+    noun = _ARTICLE_RE.sub("", span).strip()
+
+    # --- Strip trailing noise suffixes ---
+    noun = _SUFFIX_NOISE.sub("", noun).strip()
+
+    # --- Clause-fragment detection ---
+    if _JUNK_PATTERNS.search(noun):
+        return "UNKNOWN", None, direction
+
+    # --- Length guard: more than MAX_NOUN_WORDS → almost certainly a clause ---
+    if len(noun.split()) > MAX_NOUN_WORDS:
+        # Last-ditch rescue: take first two words (e.g. "music venue a few steps away" → "music venue")
+        short = " ".join(noun.split()[:2])
+        if not _JUNK_PATTERNS.search(short) and len(short) >= 3:
+            noun = short
         else:
-            the_matches = list(re.finditer(r"\bthe\b", text_clean, re.IGNORECASE))
-            span = text_clean[the_matches[-1].start():].strip() if the_matches else text_clean
-            
-        stops = [r"\b(?:on|near|across|which|is|south|north|west|east|corner|end|middle|just|before|after|past|beside|behind|of)\b", r",", r"\."]
-        earliest_stop = len(span)
-        for stop_pattern in stops:
-            s_match = re.search(stop_pattern, span, re.IGNORECASE)
-            if s_match and s_match.start() > 0 and s_match.start() < earliest_stop:
-                earliest_stop = s_match.start()
-        
-        noun = span[:earliest_stop].strip()
-        noun = re.sub(r"^(the|a|an)\s+", "", noun, flags=re.IGNORECASE).strip()
+            return "UNKNOWN", None, direction
 
-    # 3. Final article/direction scrub
-    noun = re.sub(r"^(the|a|an)\s+", "", noun, flags=re.IGNORECASE).strip()
+    # --- Stop word / too-short guard ---
+    if noun.lower() in STOP_WORDS or len(noun) < 2:
+        return "UNKNOWN", None, direction
 
-    # 4. Resolve Category using the module-level matcher
+    # --- Road suffix → ROAD category (avoids wasting POI fuzzy search on streets) ---
+    if _ROAD_SUFFIXES.search(noun):
+        return "ROAD", noun, direction
+
+    # --- Category resolution ---
     try:
         category = matcher.get_category(noun)
-    except:
+    except Exception:
         category = "UNKNOWN"
 
-    return category, noun
+    return category, noun, direction
 
 
-def normalize_landmark_category(extracted_noun, threshold=80):
+# ---------------------------------------------------------------------------
+# Normalization utilities
+# ---------------------------------------------------------------------------
+
+def normalize_landmark_category(extracted_noun: str, threshold: int = 80) -> str:
     """
-    Normalizes extracted nouns to the canonical keys in LANDMARK_GROUPS.
+    Snaps a raw noun to the closest canonical LANDMARK_GROUPS key via fuzzy match.
+
     Example: 'musuem' -> 'MUSEUM', 'entrence' -> 'ENTRANCE'
+    Returns the original (uppercased) string if no match clears the threshold.
     """
-    # 1. Get our "Source of Truth" keys from config
     canonical_keys = list(config.LANDMARK_GROUPS.keys())
-    
-    # 2. Pre-processing: Standardize to uppercase for matching
     query = extracted_noun.strip().upper()
-    
-    # 3. Quick Check: Is it already a perfect match?
+
     if query in canonical_keys:
         return query
 
-    # 4. Fuzzy Match: Find the closest canonical key
-    # process.extractOne returns (best_match, score)
     best_match, score = process.extractOne(query, canonical_keys, scorer=fuzz.ratio)
-    
-    if score >= threshold:
-        # Success: We found a close enough match to justify 'correcting' it
-        return best_match
-    
-    # 5. Failure: Too different, return original to avoid 'hallucinating' a category
-    return query
+    return best_match if score >= threshold else query
 
-def normalize_intent(extracted_noun, threshold=80):
+
+def normalize_intent(extracted_noun: str, threshold: int = 80) -> str:
     """
-    Finalized Normalization Layer:
-    - Snaps typos to Categories (Tier 1)
-    - Passes Brands through to Name Search (Tier 2)
+    Two-tier normalization:
+      Tier 1 — snaps typos to canonical categories (fuzzy match).
+      Tier 2 — passes brands/unknowns through uppercased for name search.
+
+    Example: 'Starbucks' won't match any category key and is passed through as-is.
     """
     if not extracted_noun:
         return "UNKNOWN"
-        
+
     canonical_keys = list(config.LANDMARK_GROUPS.keys())
     query = str(extracted_noun).strip().upper()
-    
-    # 1. Perfect Match
+
     if query in canonical_keys:
         return query
-        
-    # 2. Fuzzy Match (using WRatio for better singular/plural/case handling)
+
     best_match, score = process.extractOne(query, canonical_keys, scorer=fuzz.WRatio)
-    
-    if score >= threshold:
-        return best_match
-    
-    # 3. PASS-THROUGH (For Brands like Starbucks, 7-Eleven, etc.)
-    return query
+    return best_match if score >= threshold else query
