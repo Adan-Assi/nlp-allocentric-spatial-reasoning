@@ -87,6 +87,21 @@ class OracleEngine:
         else:
             print(f"⚠️ Warning: No spatial column found for {config.CURRENT_CITY}!")
 
+        if 'osmid' in self.poi_df.columns:
+            def normalize_node_id(raw_id):
+                raw = str(raw_id).replace('#', '').strip()
+                # Strip OSM type prefixes like 'node/', 'way/', 'relation/'
+                for osm_prefix in ('node/', 'way/', 'relation/'):
+                    if raw.startswith(osm_prefix):
+                        raw = raw[len(osm_prefix):]
+                        break
+                for variant in [f"1#{raw}", f"#{raw}", raw]:
+                    if variant in self.G.nodes:
+                        return variant
+                return raw  # fallback
+            
+            self.poi_df['graph_node_id'] = self.poi_df['osmid'].apply(normalize_node_id)
+
         self.prefix = config.get_node_prefix()
 
         # Clean all relevant search columns (The 'Vocabulary' Expansion)
@@ -104,23 +119,19 @@ class OracleEngine:
     
 
     def get_graph_node(self, rvs_id: str) -> str:
-        """
-        Attempts to resolve an RVS Node ID to a valid Graph Node ID.
-        Handles the prefix inconsistencies (#, 1#) found in Philly and Pittsburgh.
-        """
         if not rvs_id:
             return None
-            
-        # Clean the input ID
         raw_id = str(rvs_id).replace('#', '').strip()
-        
-        # Check the 3 known variations in order of likelihood
+        for osm_prefix in ('node/', 'way/', 'relation/'):
+            if raw_id.startswith(osm_prefix):
+                raw_id = raw_id[len(osm_prefix):]
+                break
         possible_ids = [f"1#{raw_id}", f"#{raw_id}", raw_id]
-        
         for variant in possible_ids:
             if variant in self.G.nodes:
                 return variant
-                
+        # Always print on miss - no counter limit
+        print(f"MISS: input={rvs_id!r} tried={possible_ids}", flush=True)
         return None
 
 
@@ -174,20 +185,14 @@ class OracleEngine:
             else:
                 best_match = candidates.iloc[0]
             
-            # --- START OF FUZZY PREFIX FIX ---
-            raw_id = str(best_match['osmid']).replace('#', '').strip()
-            
-            # These are the 3 variations we found in the Philly Graph diagnostic
-            possible_node_ids = [f"1#{raw_id}", f"#{raw_id}", raw_id]
-            
-            # Find the first one that actually exists in the Graph
-            target_node = next((node for node in possible_node_ids if node in self.G.nodes), None)
-            
+            target_node = best_match['graph_node_id']
+
             if target_node:
                 return target_node
             # --- END OF FUZZY PREFIX FIX ---
 
         return None
+
 
     def verify_proximity(self, agent_node, landmark_name):
         """
@@ -248,26 +253,41 @@ class OracleEngine:
         return candidates
     
 
-    def filter_candidates_by_direction(self, origin_node: str, candidate_ids: list, target_direction: str) -> list:
-        # 1. Standardize
-        target_direction = target_direction.strip().upper()[0] # Gets 'N', 'S', etc.
+    def filter_candidates_by_direction(self, origin_node, candidate_ids, target_direction):
+        print(f"DEBUG: filter_candidates_by_direction ENTRY - {len(candidate_ids)} candidates")  # add this
+        # TEMP DIAGNOSTIC - DELETE LATER
+        print(f"DEBUG candidate_ids sample: {candidate_ids[:3]}, types: {[type(x) for x in candidate_ids[:3]]}")
+        print(f"DEBUG sample G.nodes: {list(self.G.nodes())[:3]}")
         
-        # 2. Get Origin Coords
+        target_direction = target_direction.strip().upper()[0]
         origin_data = self.G.nodes[origin_node]
+        print(f"DEBUG G id in filter: {id(self.G)}")
         lat1, lon1 = origin_data['y'], origin_data['x']
 
+        resolved_count = 0
+        failed_count = 0
         kept = []
+        
         for node_id in candidate_ids:
+            # TEMP: bypass get_graph_node entirely
+            in_graph = node_id in self.G.nodes
+            if not in_graph:
+                failed_count += 1
+                if failed_count <= 2:
+                    print(f"DEBUG DIRECT MISS: {node_id!r} in G.nodes={in_graph}, G id={id(self.G)}")
+                continue
+            resolved_count += 1
             node_data = self.G.nodes[node_id]
-            # 3. Call utils directly
-            actual_dir = utils.get_dominant_direction(
-                lat1, lon1, node_data['y'], node_data['x']
-            )
-            
+            actual_dir = utils.get_dominant_direction(lat1, lon1, node_data['y'], node_data['x'])
             if actual_dir == target_direction:
                 kept.append(node_id)
+
+        # Temporary: log when most candidates are being dropped
+        if failed_count > 0 and failed_count >= resolved_count:
+            print(f"⚠️ Direction filter dropped {failed_count}/{failed_count+resolved_count} candidates due to unresolved node IDs")
+        
         return kept
-    
+        
     
     def find_nearest_node(self, lat: float, lon: float) -> Tuple[str, float]:
         """
@@ -343,10 +363,7 @@ class OracleEngine:
         final_scores = spatial_score + semantic_score
         nearest_idx = final_scores.idxmax()
             
-        raw_osmid = str(filtered_df.loc[nearest_idx, 'osmid']).replace('#', '').strip()
-        possible_node_ids = [f"1#{raw_osmid}", f"#{raw_osmid}", raw_osmid]
-        
-        return next((node for node in possible_node_ids if node in self.G.nodes), None)
+        return filtered_df.loc[nearest_idx, 'graph_node_id']
 
 
     def resolve_all_candidates(self, tags: dict, landmark_name: str = "", score_threshold: float = 0.5, bounds: tuple = None) -> list:
@@ -420,9 +437,11 @@ class OracleEngine:
         
         results = []
         for _, row in hits.iterrows():
-            osmid = str(row.get('osmid', 'unknown')).replace('#', '').strip()
-            node_id = f"1#{osmid}" if f"1#{osmid}" in self.G.nodes else osmid
-            
+            node_id = row.get('graph_node_id')
+            if node_id is None or node_id not in self.G.nodes:
+                print(f"DEBUG G id in resolve: {id(self.G)}, node_id={node_id!r}, in_G={node_id in self.G.nodes}")
+                continue  # skip unresolvable POIs
+                        
             results.append({
                 "node_id": node_id, 
                 "name": row.get('name', 'Unknown'),

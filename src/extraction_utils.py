@@ -16,24 +16,32 @@ _ANCHOR_RE = re.compile(
 
 # "at the X" shortcut — only when followed by a hard boundary
 _AT_THE_RE = re.compile(
-    r"\bat\s+the\s+([\w\s]{2,40}?)\s*(?=on\b|is\b|at\b|near\b|just\b|,|\.|\band\b|$)",
+    r"\bat\s+the\s+([\w\s]{2,40}?)\s*(?=\s+on\b|\s+is\b|\s+at\b|\s+near\b|\s+just\b|\s+in\b|,|\.|\s+and\b|$)",
+    re.IGNORECASE,
+)
+
+# Clause-fragment red flags: if the noun contains these, it's junk
+_JUNK_PATTERNS = re.compile(
+    r"\b(if|where|find|go|you|your|it\s+and|continued|locale|destination|"
+    r"steps?\s+away|close\s+the|get\s+there|east\s+of|west\s+of|north\s+of|south\s+of|"
+    r"its\s+north|its\s+south|its\s+east|its\s+west|"
+    r"most\s+north|most\s+south|most\s+east|most\s+west|"
+    r"most\s+northern|most\s+southern|most\s+eastern|most\s+western|"
+    r"northwest\s+of|northeast\s+of|southwest\s+of|southeast\s+of|"
+    r"next\s+\w+\s+block|this\s+parking|pay\s+bike|train\s+tracks|"
+    r"bridge\s+together|bridge\s+that|block\s+called|T-intersection|"
+    r"least\s+two|freely\s+play|center\s+aisle)\b"
+    r"|\.$",
     re.IGNORECASE,
 )
 
 # Stop patterns that terminate a noun phrase
-#_STOPS = re.compile(
-#    r"\b(?:on|near|across|which|is|south|north|west|east|corner|end|middle|"
-#    r"just|before|after|past|beside|behind|of|directly|close|towards|toward|"
-#    r"where|if|that|but|and|or|so|when|while|until)\b"
- #   r"|[,\.\!\?]",
-  #  re.IGNORECASE,
-#)
 _STOPS = re.compile(
-    r"\b(?:on|near|across|which|is|south|north|west|east|corner|end|middle|"
-    r"just|before|after|past|beside|behind|of|directly|close|towards|toward|"
-    r"where|if|that|but|and|or|so|when|while|until|than|any|we'll|will|meet|"
-    r"get|some|and|with|there|be|a|an|the|here|see|at|about|you|me|my)\b"
-    r"|[,\.\!\?\?]",
+    r"(?<!\w)\b(?:on|in|near|across|which|is|south|north|west|east|middle|"
+    r"just|before|after|past|beside|behind|directly|close|towards|toward|"
+    r"where|if|that|but|or|so|when|while|until|than|we'll|will|meet|"
+    r"get|with|there|see|about)\b(?!\w)"
+    r"|[,\.\!\?]",
     re.IGNORECASE,
 )
 
@@ -47,17 +55,11 @@ _SUFFIX_NOISE = re.compile(
 # Leading articles
 _ARTICLE_RE = re.compile(r"^(the|a|an)\s+", re.IGNORECASE)
 
-# Clause-fragment red flags: if the noun contains these, it's junk
-_JUNK_PATTERNS = re.compile(
-    r"\b(if|where|find|go|you|your|it\s+and|continued|locale|destination|"
-    r"steps?\s+away|close\s+the)\b",
-    re.IGNORECASE,
-)
 
 # Road/street references — routed to ROAD category instead of POI fuzzy search
 _ROAD_SUFFIXES = re.compile(
     r"\b(street|st|avenue|ave|boulevard|blvd|drive|dr|road|rd|lane|ln|"
-    r"place|pl|square|sq|court|ct|way|highway|hwy|route|circle|terrace)\b",
+    r"place|pl|highway|hwy|route|circle|terrace)\b",
     re.IGNORECASE,
 )
 
@@ -196,6 +198,7 @@ def extract_rvs_target(text: str) -> tuple:
     # --- Clause-fragment detection ---
     if _JUNK_PATTERNS.search(noun):
         return "UNKNOWN", None, direction
+    
 
     # --- Length guard: more than MAX_NOUN_WORDS → almost certainly a clause ---
     if len(noun.split()) > MAX_NOUN_WORDS:

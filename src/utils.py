@@ -57,16 +57,17 @@ def get_clamped_radius(area_m2):
     return max(config.RADIUS_MIN, min(scaled_radius, config.RADIUS_MAX))
 
 
-def is_within_buffer(G, agent_node, landmark_coords, radius):
+def is_within_buffer(G, agent_node, landmark_coords, radius=None):
     """
     Checks if agent node is within a specific radius of landmark coordinates.
-    Now used with get_clamped_radius for dynamic 'At/Near' logic.
     """
     if radius is None:
-        radius = config.SUCCESS_RADIUS # Fallback to global default if not provided
+        # Dynamically fetch the radius based on config.CURRENT_CITY
+        radius = config.get_success_radius() 
 
     agent_coords = get_node_coords(G, agent_node)
-    dist = get_geodesic_dist_raw(agent_coords[0], agent_coords[1], landmark_coords[0], landmark_coords[1])
+    dist = get_geodesic_dist_raw(agent_coords[0], agent_coords[1], 
+                                 landmark_coords[0], landmark_coords[1])
     return dist <= radius
 
 # --- DIRECTIONAL & BEARING UTILITIES ---

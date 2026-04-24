@@ -179,69 +179,105 @@ LANDMARK_GROUPS = {
     "MARKET": {"amenity": "marketplace", "shop": "market"}
 }
 
-# Use these words to trigger the OSM tag searches in LANDMARK_GROUPS
+# Maps common instruction keywords to canonical categories for the CategoricalMatcher
+# Maps common instruction keywords to canonical categories for the CategoricalMatcher
 TEXT_TO_GROUP_MAP = {
-    "post box": "POST",
-    "waste basket": "BENCH",
-    "car sharing": "PARKING",
-    "convenience shop": "SHOP",
-    "alcohol shop": "SHOP",
-    "community centre": "OFFICE",
-    "social facility": "OFFICE",
-    "parking lot": "PARKING",
-    "parking entrance": "PARKING",
-    "garage": "PARKING",
-    "atm": "SHOP",
-    "supermarket": "SHOP", "grocery": "SHOP", "deli": "SHOP", "pharmacy": "PHARMACY",
-    "chemists": "PHARMACY", "drugstore": "PHARMACY", "wine": "SHOP", "vitamins": "SHOP",
-    "synagogue": "CHURCH", "temple": "CHURCH", "mosque": "CHURCH",
-    "pub": "BAR", "nightclub": "BAR", "club": "BAR", "biergarten": "BAR",
-    "theatre": "THEATRE", "cinema": "THEATRE", "movie": "THEATRE",
-    "college": "SCHOOL", "university": "SCHOOL", "campus": "SCHOOL",
-    "playground": "PARK", "recreation": "PARK",
-    "bench": "BENCH", "seat": "BENCH",
-    "pier": "STATION", "dock": "STATION", "terminal": "STATION",
-    "post office": "POST",
-    "post-office": "POST",
-    "mailbox": "POST",
-    "coffee": "CAFE",
-    "coffee shop": "CAFE",
-    "clothing": "CLOTHES",
-    "deli": "STORE", # Cross-referencing your STORE group
-    "pizza": "FOOD",
-    "restaurant": "RESTAURANT",
-    "burger": "FOOD",
-    "hospital": "SCHOOL", # Often shared tags in OSM
-    "doctor": "OFFICE",
-    "dentist": "OFFICE",
-    "gallery": "MUSEUM",
-    "monument": "MONUMENT",
-    "memorial": "MONUMENT",
-    "marketplace": "MARKET",
-    "market": "MARKET",
-    "bicycle parking": "BICYCLE",
-    "starbucks": "CAFE",
-    "wendy's": "RESTAURANT",
-    "dunkin": "CAFE",
-    "peet's": "CAFE",
-    "ben & jerry's": "SHOP",
-    "ice cream": "SHOP",
-    "creamery": "SHOP",
-    "american eagle": "CLOTHES",
-    "outfitters": "SHOP",
-    "7-eleven": "SHOP",
-    "wawa": "SHOP",
-    "target": "STORE",
-    "walmart": "STORE",
-    "mcdonald's": "RESTAURANT",
-    "burger king": "RESTAURANT",
-    "papa john's": "FOOD",
-    "papa johns": "FOOD",
-    "dentist": "OFFICE",
-    "aspen dental": "OFFICE",
-    "pep boys": "SHOP",
-    "gift shop": "SHOP"
+    # SHOP
+    **dict.fromkeys(["convenience shop", "alcohol shop", "atm", "supermarket", "grocery",
+        "wine", "vitamins", "boutique", "boutique shop", "antique", "antiques",
+        "antique shop", "antiques shop", "vacant shop", "books shop", "bookshop",
+        "bookstore", "beauty shop", "florist shop", "florist", "massage shop",
+        "hairdresser shop", "hairdresser", "optician shop", "optician", "bike repair",
+        "car repair", "gas station", "petrol station", "fuel station", "pep boys",
+        "gift shop", "salon", "barbershop", "laundry", "laundromat", "dry cleaner",
+        "outfitters", "7-eleven", "wawa", "ben & jerry's", "ice cream", "creamery",
+        "aldi", "shop"], "SHOP"),
+
+    # PHARMACY
+    **dict.fromkeys(["pharmacy", "chemists", "drugstore", "drug store",
+        "medicine shoppe"], "PHARMACY"),
+
+    # BAR
+    **dict.fromkeys(["bar", "pub", "nightclub", "club", "biergarten",
+        "tavern", "brewery", "taproom"], "BAR"),
+
+    # RESTAURANT / FOOD
+    **dict.fromkeys(["restaurant", "diner", "wendy's", "mcdonald's",
+        "burger king"], "RESTAURANT"),
+    **dict.fromkeys(["pizza", "burger", "papa john's", "papa johns"], "FOOD"),
+
+    # CAFE
+    **dict.fromkeys(["coffee", "coffee shop", "bakery", "cafe", "starbucks",
+        "dunkin", "peet's"], "CAFE"),
+
+    # CLOTHES
+    **dict.fromkeys(["clothing", "clothes shop", "american eagle"], "CLOTHES"),
+
+    # STORE
+    **dict.fromkeys(["store", "deli", "target", "walmart"], "STORE"),
+
+    # CHURCH
+    **dict.fromkeys(["synagogue", "temple", "mosque", "church",
+        "cathedral", "chapel"], "CHURCH"),
+
+    # SCHOOL
+    **dict.fromkeys(["college", "university", "campus", "school", "library",
+        "hospital", "u of pittsburgh", "university of pittsburgh"], "SCHOOL"),
+
+    # OFFICE
+    **dict.fromkeys(["doctor", "dentist", "aspen dental", "community centre",
+        "social facility", "studio", "courthouse", "warehouse", "vfw",
+        "state farm", "gateway center", "headquarters", "company headquarters"], "OFFICE"),
+
+    # PARK
+    **dict.fromkeys(["playground", "recreation", "garden", "park", "pitch",
+        "bing pitch", "tennis", "tennis court", "court", "pavilion",
+        "shelter pavilion", "picnic shelter", "picnic", "leisure garden",
+        "little garden", "recreation center"], "PARK"),
+
+    # PARKING
+    **dict.fromkeys(["parking lot", "parking entrance", "garage", "car sharing",
+        "parking space", "parking spaces", "3 parking"], "PARKING"),
+
+    # MONUMENT
+    **dict.fromkeys(["monument", "memorial", "fountain", "gateway", "ruins",
+        "historic ruins", "historical building", "fort pitt",
+        "love sculpture", "love", "sculpture",
+        "allegheny river", "river", "river entrance",
+        "water feature", "drinking water feature"], "MONUMENT"),
+
+    # MUSEUM
+    **dict.fromkeys(["gallery", "museum"], "MUSEUM"),
+
+    # THEATRE
+    **dict.fromkeys(["theatre", "cinema", "movie", "casino"], "THEATRE"),
+
+    # MARKET
+    **dict.fromkeys(["marketplace", "market"], "MARKET"),
+
+    # HOTEL
+    **dict.fromkeys(["hotel", "motel", "inn"], "HOTEL"),
+
+    # BANK
+    **dict.fromkeys(["bank", "chase bank"], "BANK"),
+
+    # GYM
+    **dict.fromkeys(["fitness center", "fitness", "gym", "recreation center"], "GYM"),
+
+    # BENCH
+    **dict.fromkeys(["bench", "seat", "benches", "waste basket",
+        "drinking water"], "BENCH"),
+
+    # BICYCLE
+    **dict.fromkeys(["bicycle parking", "bike parking"], "BICYCLE"),
+
+    # STATION
+    **dict.fromkeys(["pier", "dock", "terminal"], "STATION"),
+
+    # POST
+    **dict.fromkeys(["post box", "post office", "post-office", "mailbox"], "POST"),
 }
+
 
 # Standard tags for broad fallback searches
 # Updated to include all critical RVS-identified OSM keys

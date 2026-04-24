@@ -121,7 +121,9 @@ def process_city(city_name):
                 print(f"DEBUG: Sample {current_id} -> Label: {label_info['state']} | Cands: {label_info['candidate_count']}", flush=True)
 
         except Exception as e:
-            print(f"⚠️  Warning: Failed to process sample {row.get('rvs_sample_number', 'N/A')}. Error: {e}")
+            import traceback
+            print(f"⚠️  Warning: Failed on sample {row.get('rvs_sample_number', 'N/A')}.")
+            traceback.print_exc()
             continue
 
     # 7. Export to Parquet (Superior for large multi-city datasets)
