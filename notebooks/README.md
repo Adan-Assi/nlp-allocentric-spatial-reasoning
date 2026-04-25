@@ -22,6 +22,9 @@ This index serves as the central map for our symbolic navigation pipeline. Use t
 | [`philly_rescue_931_ambiguous.ipynb`](./philly_rescue_931_ambiguous.ipynb) | **NLP Debugging & Silver Merge:** Diagnoses the Philly "None Noun" failure and executes the initial 3-city merge into the Silver Standard. | Consult this for the **V3 Extraction Logic**, the "Pretzel Factory" range-logic proof, and the logic used to create the foundation for the eventual Gold Standard. |
 | **🏅 Final Gold Verification** | | |
 | [`truth_convergence_audit.ipynb`](./truth_convergence_audit.ipynb) | **Geodetic Hydration & Baseline Validation:** Hydrates 9,301 Symbolic IDs into $WGS84$ coordinates. Benchmarks the dataset against the official RVS "STOP" Baseline (1,124m). | Consult this for the **Proof of Gold Status** and to verify that the final dataset perfectly replicates official research task difficulty. |
+| **📉 LLM Benchmarking & Robustness** | | |
+| [`read_evaluated_llm.ipynb`](./read_evaluated_llm.ipynb) | **Inference Post-Processing:** Parses raw LLM coordinate outputs from the cluster. Aligns model predictions with the Symbolic Gold Standard for error calculation. | Consult this to **verify the parsing logic** for coordinate strings and to see how raw model logs are converted into plottable DataFrames. |
+| [`llm_degradation_analysis.ipynb`](./llm_degradation_analysis.ipynb) | **Information Decay Analysis:** Generates the "Worrisome Gap" and "Spatial Drift" (KDE) visualizations. Benchmarks masked performance against RVS official papers. | Consult this for the **core scientific plots** of the project and the statistical proof of the model's "Near-Sighted" intelligence. |
 ---
 
 ## 🗺️ Visualization Artifacts (.html)
@@ -50,3 +53,9 @@ These files are the rendered outputs of our spatial inference tasks. Open these 
 * **Geodetic Convergence:** `truth_convergence_audit` validated that the hydrated "Gold" coordinates replicate the official RVS "STOP" baseline with **<1% variance** (1,133m vs 1,124m). This confirms the dataset provides a high-fidelity replica of the task difficulty found in state-of-the-art navigation research.
 
 * **Data Provenance:** `geo_paths_layers` and `integration_check` confirmed the structural integrity of the pipeline, specifically the use of a **6-layer GeoPackage** and the mandatory **1# node prefixing** required for consistent graph lookups.
+
+* **The "Worrisome Gap" Discovery:** `llm_degradation_analysis` identified a massive decoupling between topological and semantic intelligence. While the model maintains **~90% street-level grounding**, success drops to **<2%** for specific entities when landmarks are masked. This suggests LLMs navigate using a "Skeletal Map" rather than high-resolution entity memory.
+
+* **Anatomy of a Near-Miss:** Forensic analysis in `llm_degradation_analysis` revealed a "Spatial Drift" hump between **20m and 150m**. This proves the model isn't hallucinating randomly; it is successfully navigating to the correct vicinity but lacks the "Terminal Precision" to identify the specific door or building without explicit landmark tokens.
+
+* **Inference Alignment:** `read_evaluated_llm` resolved the challenge of mapping unstructured LLM text back to geodetic points. By implementing a **Coordinate Extraction Regex**, we successfully benchmarked 22,000+ variants against the symbolic ground truth with 100% parity.

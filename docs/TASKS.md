@@ -42,22 +42,34 @@
         - Merged 3 cities into `RVS_MASTER_SILVER_STANDARD.parquet`.
         - Result: **7,263 Answerable** training samples (78.1% Yield).
 
-## 📉 Phase 5: Evaluation & Degradation (IN PROGRESS)
-*Goal: Prove the impact of underspecification and benchmark SOTA models.*
+## ✅ Phase 5: Evaluation & Degradation (COMPLETED)
+*Goal: Quantify the impact of underspecification and benchmark baseline model resolution.*
 
-- [ ] **Task 5.1: LLM Benchmarking (`scripts/evaluate_llm.py`)**
-    - ⚠️ **SLURM RECOMMENDED:** Use cluster GPUs for model inference/evaluation (T5-base / Pythia / GPT-4o).
-    - Compare LLM spatial predictions against the Symbolic Oracle's "Ground Truth."
-- [ ] **Task 5.2: The Masking Engine (`mask_instructions.py`)**
-    - Implement RVS-style masking (removing landmarks) to test model degradation.
-- [ ] **Task 5.3: Automated Degradation Analysis**
-    - Generate plots showing `Answerable` → `Ambiguous` flips as information is removed.
+- [x] **Task 5.1: LLM Benchmarking (`scripts/evaluate_llm.py`)**
+    - Leveraged SLURM-based cluster GPUs for T5-base model inference.
+    - Benchmarked LLM spatial predictions against the Symbolic Oracle's "Ground Truth."
+    - Discovered the **"Resolution Limit"**: 90%+ Topological Grounding vs. <2% Semantic Specificity.
+- [x] **Task 5.2: The Masking Engine (`scripts/underspecify.py`)**
+    - Implemented RVS-style masking logic to programmatically remove landmarks and cardinal directions.
+    - Created a "Hard Mode" (Mask Both) to test extreme information decay.
+- [x] **Task 5.3: Automated Degradation Analysis**
+    - Generated "Information Decay" and "Spatial Drift" (KDE) visualizations.
+    - Confirmed the **Hierarchical Spatial Resilience** of LLMs under semantic underspecification.
 
 ## 🧠 Phase 6: Modeling & Training (PLANNED)
-- [ ] **Task 6.1: Train/Val/Test Splitting**
-    - Create city-balanced splits from the 7,263 answerable rows.
-- [ ] **Task 6.2: Neural Baseline Construction**
-    - Set up a sequence-to-sequence or regression head model to map instructions to coordinates.
+- [ ] **Task 6.1: Spatially-Aware Data Stratification**
+    - Create city-balanced splits (Train/Val/Test) from the 7,263 answerable rows.
+    - **Refinement:** Ensure "Near-Miss" samples (from Phase 5.3) are represented in the Test set to measure resolution improvement.
+
+- [ ] **Task 6.2: Neural Architecture - The "Precision Head"**
+    - Implement a Dual-Head Architecture:
+        1. **Classification Head:** Predicts the Topological Node (Street/Intersection).
+        2. **Regression Head:** Predicts exact Latitude/Longitude coordinates to bridge the "Last Mile" gap.
+    - Baseline models: T5-base (seq2seq) or a Lightweight MLP over LLM embeddings.
+
+- [ ] **Task 6.3: Custom Spatial Loss Function**
+    - Implement **Haversine Distance Loss** or **Geodesic Loss** instead of standard MSE.
+    - This penalizes the model based on actual physical distance (meters) rather than abstract numeric error.
 
 ---
 
@@ -69,6 +81,9 @@
 
 ---
 
-## ⚠️ Technical Debt
-- [x] **Type Safety:** (Done) Standardized `sample_id` as String to prevent PyArrow conversion errors during merge.
-- [ ] **Error Handling:** Add robust catch for the remaining malformed instructions if encountered during inference.
+## ⚠️ Technical Debt & System Stability
+*Ongoing maintenance tasks to ensure pipeline integrity.*
+
+- [x] **Type Safety:** Standardized `sample_id` as String to prevent PyArrow conversion errors during master dataset merges.
+- [ ] **Data Sanitization:** Implement robust filtering for malformed instructions (e.g., empty strings or null POIs) to prevent Batch Inference crashes in Phase 6.
+- [ ] **Path Normalization:** Ensure `config.py` handles cross-platform pathing (Windows/Linux) for seamless SLURM cluster deployment.

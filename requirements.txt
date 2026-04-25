@@ -8,4 +8,14 @@ fastparquet
 scikit-learn
 tqdm
 geopy>=2.4.0
-datasets>=3.0.0
+
+# --- Phase 5: LLM & SLURM ---
+torch              # The engine for local LLMs
+transformers       # Hugging Face library to load models (T5, Llama, etc.)
+accelerate         # Essential for running large models on GPUs efficiently
+sentencepiece      # Required for many LLM tokenizers (like T5 and Llama)
+protobuf           # Dependency for certain tokenizers
+
+# --- Fuzzy category normalization (used by extraction_utils.py) ---
+thefuzz
+python-Levenshtein

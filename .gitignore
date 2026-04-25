@@ -1,46 +1,31 @@
-# Virtual environment
+__pycache__/
+*.pyc
+.DS_Store
+venv/
 .venv/
 env/
-venv/
-
-# Python / OS junk
-__pycache__/
-*.py[cod]
-*$py.class
-.DS_Store
-Thumbs.db
+.ipynb_checkpoints/
+.vscode/
+.idea/
+cache/
+logs/
 *.log
 
-# --- ML / DATA SPECIFIC --- #
-
-# --- ML / DATA SPECIFIC --- #
-
-# 1. Ignore all city-specific binary data
+# heavy data
 data/**/*.gpickle
 data/**/*.pkl
-data/**/*.gpkg
-data/**/*.graphml
-
-# 2. Ignore ALL Parquet files by default (includes city silver files)
 data/**/*.parquet
-*.parquet
+*.pdf
 
-# 3. EXCEPTION: Specifically allow the Master Gold file
-!data/RVS_MASTER_GOLD_HYDRATED.parquet
+# model files
+runs/
+checkpoints/
+*.bin
+*.safetensors
 
-# 4. Ignore the raw JSON instruction files
-data/**/*.json
-
-# Exceptions: Keep our variants and small configs
-!data/**/underspecified_variants.json
-!data/graphs/manifest.json
-
-# 5. Ignore any HTML files (e.g., from Jupyter exports)
-*.html
-
-# Ignore specific temporary debug artifacts
-appendix_rescued_samples_v4.csv
-
-# Ignore Jupyter notebook checkpoints and cache
-.ipynb_checkpoints/
-notebooks/cache/
+# heavy data files
+data/**/*.gpickle
+data/**/*.pkl
+data/**/*.parquet
+*.zip
+*.pdf
