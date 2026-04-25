@@ -1,0 +1,24 @@
+__pycache__/
+*.pyc
+.DS_Store
+venv/
+.venv/
+env/
+.ipynb_checkpoints/
+.vscode/
+.idea/
+cache/
+logs/
+*.log
+
+# heavy data
+data/**/*.gpickle
+data/**/*.pkl
+data/**/*.parquet
+*.pdf
+
+# model files
+runs/
+checkpoints/
+*.bin
+*.safetensors
