@@ -9,7 +9,7 @@ This folder contains the core utility scripts and HPC configurations for the **N
 | [`data_download.py`](./data_download.py) | Core | Fetches the raw `tzufi/RVS` instruction dataset from Hugging Face. |
 | [`normalize_raw.py`](./normalize_raw.py) | Core | Cleans raw dataset columns and extracts `[lat, lon]` pairs. |
 | [`batch_labeling.py`](./batch_labeling.py) | **Primary** | **The Main Engine:** Executes the `SymbolicSolver` + `OracleEngine` pipeline. |
-| [`underspecify.py`](./underspecify.py) | Research | **Masking Engine:** Generates 22k+ landmark/direction masked variants. |
+| [`underspecify_instructions.py`](./underspecify_instructions.py) | Research | **Masking Engine:** Generates 22k+ landmark/direction masked variants. |
 | [`evaluate_llm.py`](./evaluate_llm.py) | Research | **Inference Engine:** Standard evaluation of the Silver Standard (7k rows). |
 | [`evaluate_llm_masked.py`](./evaluate_llm_masked.py) | Research | **Stress-Test Engine:** Benchmarks the 22,173 underspecified variants. |
 | [`verify_label_quality.py`](./verify_label_quality.py) | QA | Audits the distribution of `Answerable` vs `Ambiguous` labels. |
@@ -34,7 +34,7 @@ sbatch scripts/job_evaluate_llm_masked.sh
 3. **Labeling:**
     * `python scripts/batch_labeling.py --city [manhattan/philadelphia/pittsburgh]`
 4. **Degradation & Inference (Phase 5):**
-    * `python scripts/underspecify.py`
+    * `python scripts/underspecify_instructions.py`
     * `sbatch scripts/job_evaluate_llm_masked.sh`
 5. **Analysis:**
     * Open `notebooks/llm_degradation_analysis.ipynb` to generate final plots.
@@ -52,4 +52,4 @@ sbatch scripts/job_evaluate_llm_masked.sh
 |:---|:---|
 | `build_region_graphs.py` | **Do not use.** OSMnx builds live graphs; we must use the RVS Google Drive `.gpickle` files to avoid data misalignment with the original research. |
 | `attach_target_node_all_regions.py` | **Legacy.** Node snapping is now handled dynamically within `batch_labeling.py` via the high-speed `KDTree` implementation. |
-| `rvs_parser.py` | **Superceded.** The logic has been unified and optimized inside the main `batch_labeling.py` and `underspecify.py` scripts for better consistency. |
+| `rvs_parser.py` | **Superceded.** The logic has been unified and optimized inside the main `batch_labeling.py` and `underspecify_instructions.py` scripts for better consistency. |

@@ -17,6 +17,13 @@ if not hasattr(pandas.core.indexes, 'numeric'):
     sys.modules['pandas.core.indexes.numeric'] = pandas.core.indexes.base
 pandas.core.indexes.base.Int64Index = pd.Index
 
+# Module-level constant — defined once, shared across all OracleEngine instances
+_DIR_MAP = {
+    'NORTH': 'N', 'SOUTH': 'S', 'EAST': 'E', 'WEST': 'W',
+    'NORTHEAST': 'NE', 'NORTHWEST': 'NW',
+    'SOUTHEAST': 'SE', 'SOUTHWEST': 'SW',
+}
+
 class OracleEngine:
     def __init__(self, graph_path_or_obj, poi_path_or_df, node_prefix, city_name):
         
@@ -251,43 +258,30 @@ class OracleEngine:
                 candidates.append(node_id)
         
         return candidates
-    
 
+    # --- DIRECTIONAL FILTER ---
     def filter_candidates_by_direction(self, origin_node, candidate_ids, target_direction):
-        print(f"DEBUG: filter_candidates_by_direction ENTRY - {len(candidate_ids)} candidates")  # add this
-        # TEMP DIAGNOSTIC - DELETE LATER
-        print(f"DEBUG candidate_ids sample: {candidate_ids[:3]}, types: {[type(x) for x in candidate_ids[:3]]}")
-        print(f"DEBUG sample G.nodes: {list(self.G.nodes())[:3]}")
+        if not target_direction:
+            return candidate_ids
         
-        target_direction = target_direction.strip().upper()[0]
+        target = _DIR_MAP.get(target_direction.strip().upper())
+        if target is None:
+            return candidate_ids
+
         origin_data = self.G.nodes[origin_node]
-        print(f"DEBUG G id in filter: {id(self.G)}")
         lat1, lon1 = origin_data['y'], origin_data['x']
 
-        resolved_count = 0
-        failed_count = 0
         kept = []
-        
         for node_id in candidate_ids:
-            # TEMP: bypass get_graph_node entirely
-            in_graph = node_id in self.G.nodes
-            if not in_graph:
-                failed_count += 1
-                if failed_count <= 2:
-                    print(f"DEBUG DIRECT MISS: {node_id!r} in G.nodes={in_graph}, G id={id(self.G)}")
+            resolved = self.get_graph_node(node_id)
+            if resolved is None or resolved not in self.G.nodes:
                 continue
-            resolved_count += 1
-            node_data = self.G.nodes[node_id]
-            actual_dir = utils.get_dominant_direction(lat1, lon1, node_data['y'], node_data['x'])
-            if actual_dir == target_direction:
-                kept.append(node_id)
-
-        # Temporary: log when most candidates are being dropped
-        if failed_count > 0 and failed_count >= resolved_count:
-            print(f"⚠️ Direction filter dropped {failed_count}/{failed_count+resolved_count} candidates due to unresolved node IDs")
-        
+            node_data = self.G.nodes[resolved]
+            actual = utils.get_direction_8way(lat1, lon1, node_data['y'], node_data['x'])
+            if utils.direction_matches(actual, target):
+                kept.append(resolved)
         return kept
-        
+    
     
     def find_nearest_node(self, lat: float, lon: float) -> Tuple[str, float]:
         """

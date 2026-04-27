@@ -3,11 +3,16 @@ import re
 from thefuzz import process, fuzz
 import unicodedata
 
+
 # ---------------------------------------------------------------------------
 # Module-level compiled regexes
 # ---------------------------------------------------------------------------
 
-_DIR_RE = re.compile(r"\b(north|south|east|west)\b", re.IGNORECASE)
+# Attempt at fixing the 8 directions problem that an angle of 45 degrees didn't solve
+_DIR_RE = re.compile(
+    r"\b(northeast|northwest|southeast|southwest|north|south|east|west)\b",
+    re.IGNORECASE,
+)
 
 _ANCHOR_RE = re.compile(
     r"\b(at|to|me\s+at|find\s+me\s+at|is\s+at|located\s+at|head\s+to|go\s+to|walk\s+to)\b",
@@ -24,10 +29,19 @@ _AT_THE_RE = re.compile(
 _JUNK_PATTERNS = re.compile(
     r"\b(if|where|find|go|you|your|it\s+and|continued|locale|destination|"
     r"steps?\s+away|close\s+the|get\s+there|east\s+of|west\s+of|north\s+of|south\s+of|"
+    # --- Standalone directionals ---
+    r"north|south|east|west|northeast|northwest|southeast|southwest|"
+    r"my\s+north|my\s+south|my\s+east|my\s+west|"
+    # ------------------------------------------
     r"its\s+north|its\s+south|its\s+east|its\s+west|"
+    r"its\s+southwest|its\s+northwest|its\s+northeast|its\s+southeast|"
     r"most\s+north|most\s+south|most\s+east|most\s+west|"
     r"most\s+northern|most\s+southern|most\s+eastern|most\s+western|"
     r"northwest\s+of|northeast\s+of|southwest\s+of|southeast\s+of|"
+    r"southeast\s+corner|northeast\s+corner|southwest\s+corner|northwest\s+corner|"
+    r"corner\s+of\s+the|end\s+of\s+the|other\s+side\s+of|"
+    r"south\s+part|north\s+part|east\s+part|west\s+part|"
+    r"birthplace\s+of|entrance\s+to|"
     r"next\s+\w+\s+block|this\s+parking|pay\s+bike|train\s+tracks|"
     r"bridge\s+together|bridge\s+that|block\s+called|T-intersection|"
     r"least\s+two|freely\s+play|center\s+aisle)\b"
@@ -37,7 +51,7 @@ _JUNK_PATTERNS = re.compile(
 
 # Stop patterns that terminate a noun phrase
 _STOPS = re.compile(
-    r"(?<!\w)\b(?:on|in|near|across|which|is|south|north|west|east|middle|"
+    r"(?<!\w)\b(?:on|in|near|across|which|is|middle|"
     r"just|before|after|past|beside|behind|directly|close|towards|toward|"
     r"where|if|that|but|or|so|when|while|until|than|we'll|will|meet|"
     r"get|with|there|see|about)\b(?!\w)"
@@ -173,7 +187,7 @@ def extract_rvs_target(text: str) -> tuple:
 
     Returns:
         (category: str, noun: str | None, direction: str | None)
-        direction is one of 'N', 'S', 'E', 'W' or None.
+        direction is one of 'N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW' or None.
         noun is None when no valid landmark could be extracted.
     """
     text = _normalize(text)
@@ -182,7 +196,17 @@ def extract_rvs_target(text: str) -> tuple:
     direction = None
     dm = _DIR_RE.search(text)
     if dm:
-        direction = dm.group(1).upper()[0]
+        # --- Direction ---
+        _FULL_DIR_MAP = {
+            'northeast': 'NE', 'northwest': 'NW',
+            'southeast': 'SE', 'southwest': 'SW',
+            'north': 'N', 'south': 'S',
+            'east': 'E', 'west': 'W',
+        }
+        direction = None
+        dm = _DIR_RE.search(text)
+        if dm:
+            direction = _FULL_DIR_MAP.get(dm.group(1).lower())
 
     # --- Span extraction ---
     span = _extract_span(text)

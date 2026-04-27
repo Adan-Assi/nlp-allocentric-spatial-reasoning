@@ -10,12 +10,6 @@ import os
 # This ensures that whether we run from /scripts or the root, paths stay valid
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-# Data Paths (Updated for our 1B stress test)
-#GRAPH_PATH = os.path.join(BASE_DIR, "data", "manhattan", "manhattan_graph.gpickle")
-#POI_PATH = os.path.join(BASE_DIR, "data", "manhattan", "manhattan_poi.pkl")
-#VARIANTS_JSON = os.path.join(BASE_DIR, "data", "manhattan", "underspecified_variants.json")
-#RVS_DATA_JSON = os.path.join(BASE_DIR, "data", "manhattan", "manhattan.json")
-
 # --- Dynamic Path Resolution ---
 # Replace the previously hardcoded GRAPH_PATH/POI_PATH with dynamic getters:
 
@@ -93,7 +87,11 @@ S0_BUFFER_METERS = 20
 USE_SCC_OPTIMIZATION = True
 
 # --- Phase 3: Directional & Vector Logic ---
-DIRECTIONAL_WEDGE_DEGREES = 45
+#DIRECTIONAL_WEDGE_DEGREES = 45
+COMPASS_DIRECTIONS = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"]
+COMPASS_SECTOR_COUNT = 8
+COMPASS_SECTOR_ANGLE = 360 / COMPASS_SECTOR_COUNT  # 45.0
+COMPASS_CENTERING_OFFSET = COMPASS_SECTOR_ANGLE / 2  # 22.5
 
 # --- Phase 4: Landmark Grounding (Clamped Radius) ---
 # The influence zone scaling: 1.2 means 20% larger than the physical footprint
@@ -115,72 +113,86 @@ STATE_CONTRADICTORY = "Contradictory"
 METERS_PER_DEGREE_LATITUDE = 111000.0
 
 # --- OSM Metadata Mapping ---
-# Maps keywords from instructions to specific columns and values in manhattan_poi.pkl
-# Task 2.5 Final Mapping - based on coverarge results
-LANDMARK_GROUPS = {
-    "CHURCH": {"amenity": ["place_of_worship", "monastery"]},
-    "RESTAURANT": {"amenity": ["restaurant", "fast_food", "food_court"], "brand": "yes"},
-    "SHOP": {"shop": ["yes", "supermarket", "convenience", "clothes", "mall"], "brand": "yes"},
-    "PARK": {"leisure": ["park", "recreation_ground"], "boundary": "park"},
-    "GARDEN": {"leisure": "garden"},
-    "THEATRE": {"amenity": ["theatre", "arts_centre"]},
-    "STREET": {"highway": ["residential", "tertiary", "secondary", "unclassified"]},
-    "AVENUE": {"highway": ["primary", "secondary"]}, 
-    "BICYCLE": {"amenity": ["bicycle_parking", "bicycle_rental"]},
-    "PHARMACY": {"amenity": "pharmacy", "brand": "yes"},
-    "BANK": {"amenity": "bank", "brand": "yes"},
-    "CAFE": {"amenity": "cafe", "brand": "yes"},
-    "PARKING": {
-        "amenity": ["parking", "bicycle_parking", "motorcycle_parking"],
-        "parking": ["surface", "multi-storey", "underground"] # Add this!
-    },
-    "MUSEUM": {"tourism": "museum", "historic": ["museum", "yes"]}, # Expanded historic tag for better coverage
-    "WATER": {"natural": "water", "waterway": "river"},
-    "BENCH": {"amenity": "bench"},
+# --- MAPPING LOGIC REMINDER ---
+# 1. TEXT_TO_GROUP_MAP: Human -> Concept (Translates slang/synonyms to a Category)
+#    Example: "Starbucks" or "coffee" -> "CAFE"
+#
+# 2. LANDMARK_GROUPS: Concept -> Data (Translates a Category to OSM Tags)
+#    Example: "CAFE" -> {"amenity": "cafe", "brand": "yes"}
+# ------------------------------
 
-    # --- NEW: Mapping the "Hit List" & RVS Metadata ---
-    "FOOD": {"amenity": ["restaurant", "food_court", "cafe"], "brand": "yes"}, # Freq: 540
+# Organized by alphabetic order (based on coverage results)
+LANDMARK_GROUPS = {
+    "AVENUE": {"highway": ["primary", "secondary"]}, 
+
+    "BANK": {"amenity": "bank", "brand": "yes"},
+    "BAR": {"amenity": ["bar", "pub"]}, # Freq: 338
+    "BENCH": {"amenity": "bench"},
     "BIKE": {
         "amenity": ["bicycle_parking", "bicycle_rental"], # Matches Citi Bike
         "shop": ["bicycle", "yes"],                       # Matches Franks / Retail
+        "network": ["Citi Bike", "citibike"], 
+        "operator": ["NYC Bike Share", "Motivate"],
         "brand": "yes"
     },# Freq: 467
-    "RENTAL": {"amenity": ["bicycle_rental", "car_rental"]}, # Freq: 398
-
-    # Updated BUILDING group with RVS material/roof metadata (Freq: 377)
-    "BUILDING": {
-        "building": "yes", 
-        "building:material": "yes", 
-        "roof:shape": "yes", 
-        "roof:material": "yes",
-        "colour": "yes",            # <--- Added
-        "building:colour": "yes",   # <--- Added
-        "roof:colour": "yes"        # <--- Added
-    },
-
     "BROADWAY": {"highway": "primary", "name": "Broadway"}, # Freq: 373
-    "POST": {"amenity": ["post_office", "post_box"]}, # Freq: 346
-    "BAR": {"amenity": ["bar", "pub"]}, # Freq: 338
-    "SCHOOL": {"amenity": ["school", "university", "college"]}, # Freq: 331
-    "LIBRARY": {"amenity": "library"}, # Freq: 326
-    "STATION": {"railway": ["station", "subway_entrance"], "amenity": "bus_station"}, # Freq: 304
-    "STORE": {"shop": "yes"}, # Freq: 297
-    "OFFICE": {"office": "yes"}, # Freq: 290
-    "HOTEL": {"tourism": ["hotel", "hostel", "motel", "guest_house"]}, # Frequency fix: 660
+    "BUILDING": {"building": ["yes", "commercial", "residential", 
+                            "office", "retail", "apartments"]},
+
+
+    "CAFE": {"amenity": "cafe", "brand": "yes"},
+    "CHURCH": {"amenity": ["place_of_worship", "monastery"]},
+    "CLOTHES": {"shop": ["clothes", "fashion", "boutique"], "brand": "yes"},
 
     # Common typos found in our audit
-    "ENTRANCE": {"amenity": ["subway_entrance", "entrance"], "railway": "subway_entrance"},
+    "ENTRANCE": {"amenity": ["subway_entrance", "entrance"],
+                "railway": "subway_entrance"},
+    
+    "FOOD": {"amenity": ["restaurant", "food_court", "cafe"], "brand": "yes"}, # Freq: 540
 
-    # Consolidate ambiguous terms
-    "CLOTHES": {"shop": ["clothes", "fashion", "boutique"], "brand": "yes"},
-    "STORE": {"shop": ["yes", "convenience", "supermarket", "clothes"], "brand": "yes"},
+    "GARDEN": {"leisure": ["garden", "nature_reserve"],
+            "landuse": "grass"},
+    "GYM": {"leisure": ["fitness_centre", "sports_centre"], 
+        "amenity": ["gym", "sports_centre"],
+        "shop": "sports"}, 
 
-    "MONUMENT": {"historic": ["monument", "memorial"], "tourism": "artwork"},
-    "MARKET": {"amenity": "marketplace", "shop": "market"}
+    "HOSPITAL": {"amenity": ["hospital", "clinic", "doctors"]},
+    "HOTEL": {"tourism": ["hotel", "hostel", "motel", "guest_house"]}, # Frequency fix: 660
+
+    "LIBRARY": {"amenity": "library"}, # Freq: 326
+
+    "MARKET": {"amenity": "marketplace", "shop": "market"},
+    "MONUMENT": {"historic": ["monument", "memorial"], "tourism": ["artwork", "viewpoint"]},
+    "MUSEUM": {"tourism": "museum", "historic": ["museum", "yes"]}, # Expanded historic tag for better coverage
+
+    "OFFICE": {
+        "office": "yes",
+        "amenity": ["police", "townhall", "courthouse", "embassy"]
+    },
+
+    "PARK": {"leisure": ["park", "recreation_ground"], "boundary": "park"},
+    "PARKING": {
+        "amenity": ["parking", "bicycle_parking", "motorcycle_parking"],
+        "parking": ["surface", "multi-storey", "underground"]
+    },
+    "PHARMACY": {"amenity": "pharmacy", "brand": "yes"},
+    "POST": {"amenity": ["post_office", "post_box"]}, # Freq: 346
+
+    "RENTAL": {"amenity": ["bicycle_rental", "car_rental"]}, # Freq: 398
+    "RESTAURANT": {"amenity": ["restaurant", "fast_food", "food_court"], "brand": "yes"},
+    
+    "SCHOOL": {"amenity": ["school", "university", "college"]}, # Freq: 331
+    "SHOP": {"shop": ["yes", "supermarket", "convenience", "clothes", "mall"], "brand": "yes"},
+    "STATION": {"railway": ["station", "subway_entrance"], "amenity": "bus_station"}, # Freq: 304
+    "STORE": {"shop": ["yes", "convenience", "supermarket", "clothes"], "brand": "yes"}, # Freq: 297
+    "STREET": {"highway": ["residential", "tertiary", "secondary", "unclassified"]},
+
+    "THEATRE": {"amenity": ["theatre", "arts_centre"]},
+
+    "WATER": {"natural": "water", "waterway": "river"}
 }
 
-# Maps common instruction keywords to canonical categories for the CategoricalMatcher
-# Maps common instruction keywords to canonical categories for the CategoricalMatcher
+
 TEXT_TO_GROUP_MAP = {
     # SHOP
     **dict.fromkeys(["convenience shop", "alcohol shop", "atm", "supermarket", "grocery",
@@ -191,11 +203,11 @@ TEXT_TO_GROUP_MAP = {
         "car repair", "gas station", "petrol station", "fuel station", "pep boys",
         "gift shop", "salon", "barbershop", "laundry", "laundromat", "dry cleaner",
         "outfitters", "7-eleven", "wawa", "ben & jerry's", "ice cream", "creamery",
-        "aldi", "shop"], "SHOP"),
+        "aldi", "shop", "Gap"], "SHOP"),
 
     # PHARMACY
     **dict.fromkeys(["pharmacy", "chemists", "drugstore", "drug store",
-        "medicine shoppe"], "PHARMACY"),
+        "medicine shoppe", "cvs"], "PHARMACY"),
 
     # BAR
     **dict.fromkeys(["bar", "pub", "nightclub", "club", "biergarten",
@@ -203,7 +215,7 @@ TEXT_TO_GROUP_MAP = {
 
     # RESTAURANT / FOOD
     **dict.fromkeys(["restaurant", "diner", "wendy's", "mcdonald's",
-        "burger king"], "RESTAURANT"),
+        "burger king", "potbelly"], "RESTAURANT"),
     **dict.fromkeys(["pizza", "burger", "papa john's", "papa johns"], "FOOD"),
 
     # CAFE
@@ -220,20 +232,32 @@ TEXT_TO_GROUP_MAP = {
     **dict.fromkeys(["synagogue", "temple", "mosque", "church",
         "cathedral", "chapel"], "CHURCH"),
 
-    # SCHOOL
-    **dict.fromkeys(["college", "university", "campus", "school", "library",
-        "hospital", "u of pittsburgh", "university of pittsburgh"], "SCHOOL"),
+    # SCHOOL — academic institutions only
+    **dict.fromkeys(["college", "university", "campus", "school",
+        "u of pittsburgh", "university of pittsburgh"], "SCHOOL"),
+
+    # LIBRARY — separate from SCHOOL, for correct OSM tag matching
+    **dict.fromkeys(["library", "public library", "branch library"], "LIBRARY"),
+
+    # HOSPITAL — medical facilities
+    **dict.fromkeys(["hospital", "medical center", "clinic", "urgent care",
+        "emergency room", "health center", "medical centre"], "HOSPITAL"),
 
     # OFFICE
     **dict.fromkeys(["doctor", "dentist", "aspen dental", "community centre",
         "social facility", "studio", "courthouse", "warehouse", "vfw",
-        "state farm", "gateway center", "headquarters", "company headquarters"], "OFFICE"),
+        "state farm", "gateway center", "headquarters",
+        "company headquarters"], "OFFICE"),
 
     # PARK
-    **dict.fromkeys(["playground", "recreation", "garden", "park", "pitch",
+    **dict.fromkeys(["playground", "recreation", "park", "pitch",
         "bing pitch", "tennis", "tennis court", "court", "pavilion",
         "shelter pavilion", "picnic shelter", "picnic", "leisure garden",
-        "little garden", "recreation center"], "PARK"),
+        "recreation center"], "PARK"),
+
+    # GARDEN
+    **dict.fromkeys(["garden", "botanical garden", "community garden",
+    "nature reserve", "green space"], "GARDEN"),
 
     # PARKING
     **dict.fromkeys(["parking lot", "parking entrance", "garage", "car sharing",
@@ -241,10 +265,9 @@ TEXT_TO_GROUP_MAP = {
 
     # MONUMENT
     **dict.fromkeys(["monument", "memorial", "fountain", "gateway", "ruins",
-        "historic ruins", "historical building", "fort pitt",
+        "historic ruins", "historical building", "historic building", "fort pitt",
         "love sculpture", "love", "sculpture",
-        "allegheny river", "river", "river entrance",
-        "water feature", "drinking water feature"], "MONUMENT"),
+        "river entrance", "water feature", "drinking water feature"], "MONUMENT"),
 
     # MUSEUM
     **dict.fromkeys(["gallery", "museum"], "MUSEUM"),
@@ -256,26 +279,51 @@ TEXT_TO_GROUP_MAP = {
     **dict.fromkeys(["marketplace", "market"], "MARKET"),
 
     # HOTEL
-    **dict.fromkeys(["hotel", "motel", "inn"], "HOTEL"),
+    **dict.fromkeys(["hotel", "motel", "inn", "best western plus", "best western"], "HOTEL"), # Reclaiming Philly specific hotel terms
 
     # BANK
     **dict.fromkeys(["bank", "chase bank"], "BANK"),
 
     # GYM
-    **dict.fromkeys(["fitness center", "fitness", "gym", "recreation center"], "GYM"),
+    **dict.fromkeys(["fitness center", "fitness", "gym", "recreation center",
+        "sports center", "sports centre", "fitness centre",
+        "crossfit", "yoga studio", "pilates"], "GYM"),
 
     # BENCH
     **dict.fromkeys(["bench", "seat", "benches", "waste basket",
         "drinking water"], "BENCH"),
 
-    # BICYCLE
-    **dict.fromkeys(["bicycle parking", "bike parking"], "BICYCLE"),
+    # BIKE — cycling infrastructure
+    **dict.fromkeys([
+        "bicycle parking", "bike parking", "bicycle rack",
+        "citi bike", "citibike", "citi bike rental",
+        "citi bike bicycle rental", "bike station", "bicycle station",
+    ], "BIKE"),
+
+    # RENTAL — motorized or general rentals
+    **dict.fromkeys([
+        "car rental", "rental shop", "enterprise", "hertz", "avis",
+        "scooter rental", "rental car",
+    ], "RENTAL"),
 
     # STATION
     **dict.fromkeys(["pier", "dock", "terminal"], "STATION"),
 
     # POST
     **dict.fromkeys(["post box", "post office", "post-office", "mailbox"], "POST"),
+
+    # WATER
+    **dict.fromkeys(["river", "lake", "pond", "waterfront", "water",
+        "hudson river", "east river", "allegheny river",
+        "monongahela", "schuylkill"], "WATER"),
+
+    # BUILDING
+    **dict.fromkeys(["building", "office building", "apartment building",
+        "residential building", "commercial building"], "BUILDING"),
+    
+    # ENTRANCE — subway and building entrances
+    **dict.fromkeys(["entrance", "subway entrance", "building entrance",
+        "metro entrance", "station entrance"], "ENTRANCE"),
 }
 
 

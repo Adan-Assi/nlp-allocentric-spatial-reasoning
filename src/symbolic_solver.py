@@ -188,13 +188,12 @@ class SymbolicSolver:
 
     def check_reachability_scc(self, start_node: str, target_node: str) -> bool:
         """
-        Wrapper for the shared SCC utility. 
-        Note: We pull the lookup table from the oracle instance.
+        Undirected connectivity check — physically accessible, not legally routable.
+        Our project's addition to RVS methodology. O(1) via precomputed map.
         """
-        
-        return utils.is_reachable_fast(self.oracle.scc_lookup, start_node, target_node)
+        return utils.is_reachable_fast(self.scc_lookup, start_node, target_node)
 
-    #aaaaaaaaaaaaaaaa
+    
     def _apply_directional_filter(
         self, candidates: list, start_node: str, target_dir: str
     ) -> list:
@@ -233,7 +232,8 @@ class SymbolicSolver:
         return min(candidates, key=salience_rank)
 
 
-    def solve(self, instruction_text: str, start_node: str) -> dict:
+    # Modes are: "resolve" or "label"
+    def solve(self, instruction_text: str, start_node: str, mode: str) -> dict:
         """
         Master Controller: Translates text into a Symbolic State.
         Uses the 1500m 'Elbow' Horizon and O(1) SCC Reachability.
@@ -241,8 +241,12 @@ class SymbolicSolver:
         Label definitions (per project proposal + RVS paper):
         Answerable   = exactly one candidate survives all filters + reachable
         Contradictory = zero candidates, or candidate unreachable
-        Ambiguous    = reserved for underspecified variants (Step 4), not used here
+        Ambiguous    = reserved for underspecified variants (Step 4), AKA labeling mode
         """
+
+        if mode not in {"resolve", "label"}:
+            raise ValueError(f"mode must be 'resolve' or 'label', got '{mode}'")
+    
         # ------ Phase A: Candidate Resolution ------
         category, raw_noun, target_dir = extract_rvs_target(instruction_text)
         tags       = config.LANDMARK_GROUPS.get(category, {})
@@ -251,6 +255,7 @@ class SymbolicSolver:
         horizon    = config.GLOBAL_SEARCH_HORIZON_METERS
 
         metadata = {
+            "mode":               mode,
             "extracted_category": category,
             "extracted_noun":     raw_noun,
             "extracted_direction": target_dir,
@@ -262,7 +267,7 @@ class SymbolicSolver:
         )
         candidates = self._apply_directional_filter(candidates, start_node, target_dir)
 
-        # Step 2 — Philly fallback: category + direction, no name
+        # Step 2 — "Philly fallback": category + direction, no name
         if not candidates:
             candidates = self.oracle.resolve_nearby_candidates(
                 tags, lat, lon, radius_m=horizon, landmark_name=None
@@ -287,28 +292,53 @@ class SymbolicSolver:
                 clat, clon = c['coords']
                 c['dist'] = utils.haversine(lat, lon, clat, clon)
 
-        # ------ Phase B: Zero-candidate exit ------
-        count = len(candidates)
-        metadata["candidate_count"] = count
 
-        if count == 0:
+        # ------ Phase B: Zero-candidate exit ------
+        metadata["candidate_count"] = len(candidates)
+
+        if not candidates:
+            return {**metadata, "state": config.STATE_CONTRADICTORY}
+        
+
+        # ------ Phase C: Reachability filter ------
+        # Not part of RVS methodology (which used human validation).
+        # Added as a graph-based sanity check: filters nodes on physically
+        # disconnected graph islands.
+        # Uses undirected connectivity per RVS paper's "physical access" framing...
+        # ...(not directed/legal routing).
+        # O(1) via precomputed SCC map. No-op for single-component cities.
+        reachable = [c for c in candidates
+             if self.check_reachability_scc(start_node, c['node_id'])]
+        
+        metadata["reachable_candidate_count"] = len(reachable)
+
+        if not reachable:
             return {**metadata, "state": config.STATE_CONTRADICTORY}
 
-        # ------ Phase C: Salience-based selection (per RVS LANDMARK baseline) ------
-        # When multiple candidates exist, pick the most salient one.
-        # RVS ground truth is always a unique pre-selected node — ambiguity
-        # was filtered out during human validation. We mirror that here.
-        if count > 1:
-            best = self._pick_by_salience(candidates)
-            candidates = [best]
 
-        # ------ Phase D: Reachability ------
-        target_node = candidates[0]['node_id']
+        # ------ Phase D: Mode-specific labeling ------
+        if mode == "resolve":
+            # Oracle 1: pick most salient among reachable candidates.
+            # Salience breaks ties, never returns Ambiguous.
+            best = self._pick_by_salience(reachable) if len(reachable) > 1 else reachable[0]
+            return {
+                **metadata,
+                "state":       config.STATE_ANSWERABLE,
+                "target_node": best['node_id'],
+            }
 
-        if target_node == start_node:
-            return {**metadata, "state": config.STATE_ANSWERABLE, "target_node": target_node}
-
-        state = (config.STATE_ANSWERABLE
-                if self.check_reachability_scc(start_node, target_node)
-                else config.STATE_CONTRADICTORY)
-        return {**metadata, "state": state, "target_node": target_node}
+        else:  # mode == "label"
+            # Oracle 2: count reachable candidates — preserve ambiguity as signal.
+            # This is the research measurement: did masking destroy uniqueness?
+            if len(reachable) == 1:
+                return {
+                    **metadata,
+                    "state":       config.STATE_ANSWERABLE,
+                    "target_node": reachable[0]['node_id'],
+                }
+            else:
+                return {
+                    **metadata,
+                    "state":           config.STATE_AMBIGUOUS,
+                    "candidate_nodes": [c['node_id'] for c in reachable[:50]],
+                }

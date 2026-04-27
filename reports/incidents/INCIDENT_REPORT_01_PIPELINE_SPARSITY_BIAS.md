@@ -3,7 +3,7 @@
 **Status:** Resolved (Architecture Change)  
 **Date:** 2026-04-19  
 **Issue:** Philadelphia (Orange) missing results in `mask_landmark` and `mask_both` variants.  
-**Root Cause:** "Landmark-Gating" logic in `underspecify.py`.
+**Root Cause:** "Landmark-Gating" logic in `underspecify_instructions.py`.
 
 ---
 
@@ -12,7 +12,7 @@
 During Stage 4 (Cross-City Generalization) visualization, it was observed that **Philadelphia** (Orange) failed to render any bars for landmark-masked variants. 
 
 ### The "Landmark-Gating" Failure
-The original `underspecify.py` relied on the raw RVS `landmarks` metadata dictionary. 
+The original `underspecify_instructions.py` relied on the raw RVS `landmarks` metadata dictionary. 
 * **Manhattan (Dense):** High frequency of proper-noun POIs in metadata. Masking triggered successfully.
 
 * **Philadelphia (Sparse/Residential):** As noted in the RVS paper, instructors were often forced to use **generic descriptions** (e.g., "the pharmacy") or street names.
@@ -33,7 +33,7 @@ To ensure the pipeline is robust across different urban morphologies, we are shi
 | **Philly Success** | **Failed** (No proper names found) | **Passed** (Masks generic categories) |
 
 ### 2. Implementation Strategy
-The `underspecify.py` script now consumes the output of `batch_labeling.py`. By using the `extracted_noun` column, we guarantee that the text being masked is exactly what the Symbolic Solver identified as the navigational goal, regardless of whether it is a proper name (Manhattan) or a generic category (Philly).
+The `underspecify_instructions.py` script now consumes the output of `batch_labeling.py`. By using the `extracted_noun` column, we guarantee that the text being masked is exactly what the Symbolic Solver identified as the navigational goal, regardless of whether it is a proper name (Manhattan) or a generic category (Philly).
 
 ---
 
@@ -43,5 +43,5 @@ This fix recovers **1,035 Answerable samples** for Philadelphia that were previo
 
 **Revised Experiment Flow:**
 1. **Labeling:** `batch_labeling.py` extracts nouns/categories from raw text.
-2. **Underspecification:** `underspecify.py` reads these extracted nouns to create consistent masks.
+2. **Underspecification:** `underspecify_instructions.py` reads these extracted nouns to create consistent masks.
 3. **Inference:** `evaluate_llm_masked.py` benchmarks the LLM against the recovered variants.

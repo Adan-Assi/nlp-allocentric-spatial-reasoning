@@ -9,7 +9,7 @@ Our study utilizes the **RVS (Recursive Vector Space)** dataset across three dis
 ## 2. Phase 5: Experimental Stress-Testing (Underspecification)
 To isolate the model's spatial reasoning capabilities from its linguistic memorization, we implemented a **Degradation Pipeline** that systematically removes information from the navigation instructions.
 
-### 2.1 The Masking Engine (`underspecify.py`)
+### 2.1 The Masking Engine (`underspecify_instructions.py`)
 We generated **22,173 experimental variants** by applying three levels of information masking:
 
 | Variant Type | Logic | Purpose |

@@ -34,7 +34,7 @@ Diagnostics performed via `debug_philly_extraction.py` tracked the transition fr
 ## 3. Root Cause Analysis (RCA)
 1.  **The Gatekeeper Constraint:** `symbolic_solver.py` contained the condition `if category != "UNKNOWN"`. This caused 892 samples to skip "Step 2: Spatial Fallback," leading to false-positive Contradictory labels.
 2.  **Lexical Mapping Gap:** Philly-specific nouns ("car sharing", "post box", "convenience shop") were present in OSM data but absent from the `TEXT_TO_GROUP_MAP` trigger list.
-3.  **The "The" Leak:** The extraction regex was capturing definite articles ("the") as landmarks. This created junk metadata and caused the `underspecify.py` script to erroneously mask articles instead of landmarks.
+3.  **The "The" Leak:** The extraction regex was capturing definite articles ("the") as landmarks. This created junk metadata and caused the `underspecify_instructions.py` script to erroneously mask articles instead of landmarks.
 
 ---
 

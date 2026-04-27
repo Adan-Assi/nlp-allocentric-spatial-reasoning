@@ -13,7 +13,7 @@
 * **Output:** `RVS_MASTER_GOLD_HYDRATED.parquet` (The "Clean Room" dataset).
 * **Impact:** Ensures every sample contains verified real-world coordinates, effectively pruning unreachable paths and geometric contradictions from the evaluation set.
 
-**Step 4: `underspecify.py` (The Masking Engine)**
+**Step 4: `underspecify_instructions.py` (The Masking Engine)**
 * **Action:** Reads the Silver Standard Parquet and uses the `extracted_noun` to replace landmarks and directions with `[MASK]` tokens.
 * **Output:** City-specific **`underspecified_variants.json`** files (now fully populated for sparse cities like Philly).
 
@@ -46,7 +46,7 @@ While the **OracleEngine** and **SymbolicSolver** handle logical and graph-based
 
 ---
 
-### Why `underspecify.py` reads Silver instead of Gold
+### Why `underspecify_instructions.py` reads Silver instead of Gold
 
 It seems counter-intuitive to use "Silver" (the intermediate) when "Gold" (the final) exists, but there is a specific reason for it in this research design: **The Scope of Masking.**
 

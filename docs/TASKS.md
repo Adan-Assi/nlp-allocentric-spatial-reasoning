@@ -49,7 +49,7 @@
     - Leveraged SLURM-based cluster GPUs for T5-base model inference.
     - Benchmarked LLM spatial predictions against the Symbolic Oracle's "Ground Truth."
     - Discovered the **"Resolution Limit"**: 90%+ Topological Grounding vs. <2% Semantic Specificity.
-- [x] **Task 5.2: The Masking Engine (`scripts/underspecify.py`)**
+- [x] **Task 5.2: The Masking Engine (`scripts/underspecify_instructions.py`)**
     - Implemented RVS-style masking logic to programmatically remove landmarks and cardinal directions.
     - Created a "Hard Mode" (Mask Both) to test extreme information decay.
 - [x] **Task 5.3: Automated Degradation Analysis**

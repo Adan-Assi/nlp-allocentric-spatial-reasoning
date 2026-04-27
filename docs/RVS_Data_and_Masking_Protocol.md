@@ -25,7 +25,7 @@ When looking at our data (e.g., Sample #316), we noticed a large number of `main
 * Pairs each instruction with its ground-truth coordinates and landmark metadata.
 * **Result:** 7,000 verified samples ready for processing.
 
-### `scripts/underspecify.py`
+### `scripts/underspecify_instructions.py`
 **Role:** The Experiment Generator.
 * Uses the `landmarks` metadata to find strings in the text and replace them with `[MASK]`.
 * Uses Regex to replace cardinal directions (North, South, etc.) with `[DIR_MASK]`.
@@ -71,5 +71,5 @@ Our next task is building the **Oracle Solver**. It will act as the "Ground Trut
 To verify the current state of the project, run:
 ```powershell
 python scripts/rvs_parser.py     # Verifies data loading
-python scripts/underspecify.py   # Generates the test variants
+python scripts/underspecify_instructions.py   # Generates the test variants
 ```

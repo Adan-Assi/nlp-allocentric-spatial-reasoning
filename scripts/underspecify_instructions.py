@@ -1,3 +1,5 @@
+""" This script is responsible for generating the underspecified (masked) variants of the instructions """
+
 import sys
 import json
 import re

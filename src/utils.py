@@ -89,6 +89,7 @@ def get_dominant_direction(lat1, lon1, lat2, lon2):
 
 def calculate_bearing(lat1, lon1, lat2, lon2):
     """Calculates the bearing between two GPS points (0-360 degrees)."""
+
     lat1, lon1, lat2, lon2 = map(math.radians, [lat1, lon1, lat2, lon2])
     d_lon = lon2 - lon1
     y = math.sin(d_lon) * math.cos(lat2)
@@ -111,6 +112,47 @@ def get_coarse_direction(bearing):
     if 135 <= bearing < 225: return "S"
     if 225 <= bearing < 315: return "W"
     return "N"
+
+
+def get_direction_8way(lat1, lon1, lat2, lon2):
+    """
+    Maps the bearing between two GPS points to an 8-way compass direction.
+    Uses centralized config parameters for sector math.
+    """
+    bearing = calculate_bearing(lat1, lon1, lat2, lon2)
+
+    # 8 equal compass sectors, each 45 degrees wide.
+    # Adding 22.5 shifts the sector boundaries so N is centered on 0/360.
+
+    idx = int(((bearing + config.COMPASS_CENTERING_OFFSET) % 360) // config.COMPASS_SECTOR_ANGLE)
+    return config.COMPASS_DIRECTIONS[idx]
+
+
+def direction_matches(actual_direction: str, target_direction: str) -> bool:
+    """
+    Direction comparison with a small cardinal-vs-intercardinal compatibility layer.
+    """
+    if not actual_direction or not target_direction:
+        return True
+
+    # Normalize to uppercase and strip whitespace for robust comparison
+    actual = actual_direction.upper().strip() 
+    target = target_direction.upper().strip()
+
+    if target in {"NE", "NW", "SE", "SW"}:
+        return actual == target
+
+    # Allows "N" to match "NE" and "NW", etc. (but not the reverse)
+    compatible = {
+        "N": {"NW", "N", "NE"},
+        "E": {"NE", "E", "SE"},
+        "S": {"SE", "S", "SW"},
+        "W": {"SW", "W", "NW"},
+    }
+
+    # Target is cardinal → allow matches to compatible intercardinals
+    return actual in compatible.get(target, {target})
+
 
 # --- VECTOR RELATIONAL LOGIC ---
 

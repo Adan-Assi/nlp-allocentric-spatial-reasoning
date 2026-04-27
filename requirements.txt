@@ -15,3 +15,7 @@ transformers       # Hugging Face library to load models (T5, Llama, etc.)
 accelerate         # Essential for running large models on GPUs efficiently
 sentencepiece      # Required for many LLM tokenizers (like T5 and Llama)
 protobuf           # Dependency for certain tokenizers
+
+# --- For better string matching ---
+thefuzz
+python-Levenshtein

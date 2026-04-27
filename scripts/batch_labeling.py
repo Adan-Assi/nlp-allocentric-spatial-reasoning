@@ -93,7 +93,8 @@ def process_city(city_name):
                 continue
 
             # 2. THE SYMBOLIC SOLVER CALL
-            label_info = solver.solve(instruction, start_node)
+            #label_info = solver.solve(instruction, start_node)
+            label_info = solver.solve(instruction, start_node, mode="resolve")
             
             # Capture the correct ID for consistency
             current_id = row.get('rvs_sample_number', row.get('key', 'N/A'))
