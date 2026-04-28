@@ -2,7 +2,12 @@ import config
 import re
 from thefuzz import process, fuzz
 import unicodedata
+import numpy as np
 
+# Semantic Matching (SOTA approach)
+from sentence_transformers import SentenceTransformer
+from sklearn.metrics.pairwise import cosine_similarity
+# model = SentenceTransformer('all-MiniLM-L6-v2')
 
 # ---------------------------------------------------------------------------
 # Module-level compiled regexes
@@ -27,12 +32,10 @@ _AT_THE_RE = re.compile(
 
 # Clause-fragment red flags: if the noun contains these, it's junk
 _JUNK_PATTERNS = re.compile(
-    r"\b(if|where|find|go|you|your|it\s+and|continued|locale|destination|"
+    r"^(where|you|your)\b|"
+    r"\b(if|find|go|it\s+and|continued|locale|destination|"
     r"steps?\s+away|close\s+the|get\s+there|east\s+of|west\s+of|north\s+of|south\s+of|"
-    # --- Standalone directionals ---
-    r"north|south|east|west|northeast|northwest|southeast|southwest|"
     r"my\s+north|my\s+south|my\s+east|my\s+west|"
-    # ------------------------------------------
     r"its\s+north|its\s+south|its\s+east|its\s+west|"
     r"its\s+southwest|its\s+northwest|its\s+northeast|its\s+southeast|"
     r"most\s+north|most\s+south|most\s+east|most\s+west|"
@@ -53,7 +56,7 @@ _JUNK_PATTERNS = re.compile(
 _STOPS = re.compile(
     r"(?<!\w)\b(?:on|in|near|across|which|is|middle|"
     r"just|before|after|past|beside|behind|directly|close|towards|toward|"
-    r"where|if|that|but|or|so|when|while|until|than|we'll|will|meet|"
+    r"if|that|but|or|so|when|while|until|than|we'll|will|meet|"
     r"get|with|there|see|about)\b(?!\w)"
     r"|[,\.\!\?]",
     re.IGNORECASE,
@@ -73,9 +76,16 @@ _ARTICLE_RE = re.compile(r"^(the|a|an)\s+", re.IGNORECASE)
 # Road/street references — routed to ROAD category instead of POI fuzzy search
 _ROAD_SUFFIXES = re.compile(
     r"\b(street|st|avenue|ave|boulevard|blvd|drive|dr|road|rd|lane|ln|"
-    r"place|pl|highway|hwy|route|circle|terrace)\b",
+    r"highway|hwy|route|circle|terrace)\b",
     re.IGNORECASE,
 )
+
+_FULL_DIR_MAP = {
+    'northeast': 'NE', 'northwest': 'NW',
+    'southeast': 'SE', 'southwest': 'SW',
+    'north': 'N', 'south': 'S',
+    'east': 'E', 'west': 'W',
+}
 
 STOP_WORDS = frozenset({
     'the', 'a', 'an', 'and', 'meat', 'it', 'this', 'that',
@@ -84,6 +94,53 @@ STOP_WORDS = frozenset({
 
 MAX_NOUN_WORDS = 5  # spans longer than this are almost certainly clause fragments
 
+
+# ---------------------------------------------------------------------------
+# Semantic Matching — category descriptions for embedding
+# ---------------------------------------------------------------------------
+# Each category is described in natural language so the embedding model
+# can match paraphrases like "doctor's office" → HOSPITAL,
+# "place to work out" → GYM, "where you pray" → CHURCH.
+# These descriptions are encoded ONCE at module load time.
+#
+# TEXT_TO_GROUP_MAP and LANDMARK_GROUPS in config.py are unchanged —
+# they power the fast exact/partial matchers (steps 1-3).
+# Embeddings only activate in step 4 when all fast steps fail!
+
+# In HW1, we saw that word vectors are "known by the company they keep."
+CATEGORY_DESCRIPTIONS = {
+    "SHOP":       "shop store retail buying goods merchandise convenience supermarket grocery shopping",
+    "PHARMACY":   "pharmacy drugstore medicine prescription chemist pills health drugs pick up prescriptions fill prescription",
+    "BAR":        "bar pub tavern drinks alcohol beer nightclub brewery happy hour",
+    "RESTAURANT": "restaurant diner eating food meal lunch dinner fast food sit down eating",
+    "FOOD":       "pizza burger takeaway food court snacks fast food quick bite",
+    "CAFE":       "cafe coffee shop bakery espresso latte pastry brunch morning coffee",
+    "CLOTHES":    "clothing store fashion boutique apparel outfit dress shoes wear",
+    "STORE":      "store department store big box retail shopping walmart target",
+    "CHURCH":     "church synagogue mosque temple place of worship prayer religious service worship pray",
+    "SCHOOL":     "school college university campus education learning academic study classes",
+    "LIBRARY":    "library books reading public library branch lending borrow books read",
+    "HOSPITAL":   "hospital clinic medical center emergency room doctor health treatment sick care",
+    "OFFICE":     "office corporate headquarters workplace business professional work building",
+    "PARK":       "park playground recreation ground outdoor green space sports field picnic",
+    "GARDEN":     "garden botanical garden nature reserve green space flowers plants outdoor",
+    "PARKING":    "parking lot garage car park parking space vehicle leave car",
+    "MONUMENT":   "monument memorial fountain sculpture statue historic landmark art",
+    "MUSEUM":     "museum gallery exhibition art history artifacts display",
+    "THEATRE":    "theatre cinema movie arts performance concert hall show watch film",
+    "MARKET":     "market marketplace farmers market street market stalls buy fresh food",
+    "HOTEL":      "hotel motel inn hostel accommodation lodging stay sleep overnight",
+    "BANK":       "bank ATM financial institution money withdraw deposit",
+    "GYM":        "gym fitness center workout sports exercise yoga crossfit train work out lift weights",
+    "ENTRANCE":   "entrance subway entrance building entrance metro entry door way in",
+    "BENCH":      "bench seat rest area drinking water public seating sit down",
+    "BIKE":       "citi bike bicycle parking bike station cycling rental rack lock bike",
+    "RENTAL":     "car rental vehicle rental enterprise hertz avis scooter rent a car",
+    "STATION":    "station pier dock terminal transport hub bus train subway",
+    "POST":       "post office mailbox postal service mail send package stamp",
+    "WATER":      "river lake pond waterfront water body stream waterway",
+    "BUILDING":   "building apartment office residential commercial structure tower block",
+}
 
 # ---------------------------------------------------------------------------
 # Internal helpers (module-level, not class methods)
@@ -115,6 +172,10 @@ def _extract_span(text: str) -> str | None:
         the_hits = list(re.finditer(r"\bthe\b", text, re.IGNORECASE))
         span = text[the_hits[-1].start():].strip() if the_hits else text.strip()
 
+    # Strip leading "where [you/I/they] <verb>" — these are clause fragments
+    # but "noun where you <verb>" is a valid functional description (handled later)
+    span = re.sub(r"^where\s+\w+\s+", "", span, flags=re.IGNORECASE).strip()
+
     # Trim at the first stop word that isn't at position 0
     stop_m = _STOPS.search(span)
     if stop_m and stop_m.start() > 0:
@@ -128,13 +189,70 @@ def _extract_span(text: str) -> str | None:
 # ---------------------------------------------------------------------------
 
 class CategoricalMatcher:
-    """Maps extracted noun phrases to canonical LANDMARK_GROUPS categories."""
+    """
+    Maps extracted noun phrases to canonical LANDMARK_GROUPS categories.
+
+    Matching pipeline (ordered by speed, fast-exit on first hit):
+      1. Exact match against TEXT_TO_GROUP_MAP           — O(1)
+      2. Exact match against LANDMARK_GROUPS key names   — O(1)
+      3. Partial/embedded trigger match                  — O(n)
+      4. Semantic embedding similarity (SOTA, Lectures 1-2)
+         Replaces fuzzy string match — handles synonyms,
+         paraphrases, and context that string matching misses.
+         e.g. "doctor's office" → HOSPITAL (not OFFICE)
+              "place to work out" → GYM
+              "where you get prescriptions" → PHARMACY
+    """
 
     def __init__(self):
         # "synagogue" -> "CHURCH", "pub" -> "BAR", etc.
         self.text_lookup = config.TEXT_TO_GROUP_MAP
         # Allows the group name itself as a trigger: "bank" -> "BANK"
         self.group_names = {k.lower(): k for k in config.LANDMARK_GROUPS.keys()}
+
+        # --- Semantic Matching Setup (Step 4) ---
+        # Load model once: 'all-MiniLM-L6-v2' is small (80MB), fast,
+        # and strong on short phrase similarity tasks.
+        print("🧠 Loading semantic embedding model...", flush=True)
+        self._embed_model = SentenceTransformer('all-MiniLM-L6-v2')
+
+        # Pre-encode all category descriptions at init time — O(|categories|) once.
+        # At query time, only the input noun is encoded — O(1) amortized.
+        self._category_keys = list(CATEGORY_DESCRIPTIONS.keys())
+        self._category_embeddings = self._embed_model.encode(
+            [CATEGORY_DESCRIPTIONS[k] for k in self._category_keys],
+            normalize_embeddings=True,  # enables dot product as cosine similarity
+            show_progress_bar=False,
+        )
+        print(f"✅ Semantic matcher ready with {len(self._category_keys)} categories.")
+
+
+    def _semantic_match(self, text: str, threshold: float = 0.30) -> str:
+        """
+        Encode the input noun and find the most similar category description.
+        Returns UNKNOWN if no category clears the similarity threshold.
+
+        Threshold of 0.30 is conservative — embeddings are normalized so
+        cosine similarity of 0.30 means meaningful semantic overlap.
+        Lower = more permissive, Higher = more strict.
+        """
+        query_emb = self._embed_model.encode(
+            [text], normalize_embeddings=True, show_progress_bar=False
+        )
+        scores = (self._category_embeddings @ query_emb.T).flatten()
+        
+        best_idx = int(np.argmax(scores))
+        best_score = float(scores[best_idx])
+        second_score = float(np.sort(scores)[-2])
+        
+        # Confident match: best score is meaningfully higher than runner-up
+        # This handles cases where all scores are low but one is clearly best
+        margin = best_score - second_score
+        
+        if best_score >= 0.30 or (best_score >= 0.20 and margin >= 0.05):
+            return self._category_keys[best_idx]
+        
+        return "UNKNOWN"
 
 
     def get_category(self, text: str) -> str:
@@ -143,28 +261,25 @@ class CategoricalMatcher:
 
         text_lower = text.lower().strip()
 
-        # 1. Exact synonym match (Fast)
+        # 1. Exact synonym match (Fast) — TEXT_TO_GROUP_MAP
         if text_lower in self.text_lookup:
             return self.text_lookup[text_lower]
 
-        # 2. Group name match (Fast)
+        # 2. Group name match (Fast) — LANDMARK_GROUPS keys
         if text_lower in self.group_names:
             return self.group_names[text_lower]
 
-        # 3. Partial/embedded trigger match
+        # 3. Partial/embedded trigger match — O(n) over TEXT_TO_GROUP_MAP
         for trigger, group in self.text_lookup.items():
             if re.search(rf"\b{re.escape(trigger)}\b", text_lower):
                 return group
 
-        # 4. THE FUZZY SAFETY NET (The missing piece!)
-        # If we get here, it's either a typo or a complex phrase.
-        # We call the normalization function to snap it to the closest group.
-        fuzzy_group = normalize_landmark_category(text_lower)
-        
-        if fuzzy_group in self.group_names:
-            return fuzzy_group
+        # 4. Semantic embedding similarity (SOTA replacement for fuzzy match)
+        # Only reaches here when exact and partial matching both fail.
+        # Handles: synonyms, paraphrases, context-dependent disambiguation.
+        # Temporary debug inside step 4
+        return self._semantic_match(text_lower)
 
-        return "UNKNOWN"
 
 
 # Singleton — instantiated once after the class definition
@@ -196,17 +311,7 @@ def extract_rvs_target(text: str) -> tuple:
     direction = None
     dm = _DIR_RE.search(text)
     if dm:
-        # --- Direction ---
-        _FULL_DIR_MAP = {
-            'northeast': 'NE', 'northwest': 'NW',
-            'southeast': 'SE', 'southwest': 'SW',
-            'north': 'N', 'south': 'S',
-            'east': 'E', 'west': 'W',
-        }
-        direction = None
-        dm = _DIR_RE.search(text)
-        if dm:
-            direction = _FULL_DIR_MAP.get(dm.group(1).lower())
+        direction = _FULL_DIR_MAP.get(dm.group(1).lower())
 
     # --- Span extraction ---
     span = _extract_span(text)
