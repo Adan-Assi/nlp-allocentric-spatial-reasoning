@@ -75,20 +75,12 @@ def process_city(city_name):
     for _, row in tqdm(df.iterrows(), total=len(df), desc=f"Labeling {city_name}"):
         try:
             instruction = row['content']
-            s0_lat, s0_lon = row['rvs_start_point']
-            rvs_id = row.get('rvs_start_node')
+            s0_lat, s0_lon = row['rvs_start_point'] # ← reads rvs_start_point
 
             # 1. Start Node Resolution: ID-First, Snap-Second
-            # This uses your fuzzy prefix fix (1#, #, etc.)
-            start_node = oracle.get_graph_node(rvs_id) 
+            start_node = fast_snap(s0_lat, s0_lon) # ← snaps those coordinates to nearest node
 
-            # CRITICAL CHECK: Even if get_graph_node returns something, 
-            # we must ensure it is actually in the current loaded Graph G.
-            if start_node is None or start_node not in G.nodes:
-                # Fallback to physical snapping if ID mapping fails
-                start_node = fast_snap(s0_lat, s0_lon)
-            
-            # FINAL SAFETY: If for some reason G is empty or snapping failed
+            # SAFETY CHECK: Ensure snapped node is valid (exists in G)
             if start_node not in G.nodes:
                 continue
 
@@ -96,19 +88,30 @@ def process_city(city_name):
             #label_info = solver.solve(instruction, start_node)
             label_info = solver.solve(instruction, start_node, mode="resolve")
             
-            # Capture the correct ID for consistency
-            current_id = row.get('rvs_sample_number', row.get('key', 'N/A'))
+            current_id = row.get('key', 'N/A')  # Just for print
+
+            _gold_goal_node = fast_snap(
+                row['rvs_goal_point'][0],
+                row['rvs_goal_point'][1]
+            )
 
             # 3. Build Record with Matched Metadata Keys
             final_data.append({
-                "sample_id": current_id,
+                # Uniqueness: Use 'key' unique identification in Silver Standard
+                "sample_id": row.get('key', 'N/A'),
+                "rvs_sample_number": row.get('rvs_sample_number'),  # None for Philly, group ID for others
+                
                 "city": city_name,
                 "instruction": instruction,
                 "oracle_label": label_info['state'],
                 "candidate_count": label_info['candidate_count'],
                 "start_node": start_node,
-                "gold_goal_node": fast_snap(row['rvs_goal_point'][0], row['rvs_goal_point'][1]),
-                
+
+                # --- Goal node and coordinates (for potential future use in analysis or "Oracle 2" variant) ---
+                "gold_goal_node": _gold_goal_node,
+                "gold_goal_lat": G.nodes[_gold_goal_node]['y'] if _gold_goal_node in G.nodes else None,
+                "gold_goal_lon": G.nodes[_gold_goal_node]['x'] if _gold_goal_node in G.nodes else None,
+
                 # --- metadata columns (Matches solver.solve() keys) ---
                 "extracted_category": label_info.get('extracted_category'),
                 "extracted_noun": label_info.get('extracted_noun'),
@@ -118,8 +121,10 @@ def process_city(city_name):
 
             # 4. Debug: Periodic timing check (Every 50 iterations)
             if len(final_data) % 50 == 0:
-                # USE current_id HERE so Philly shows 9126 instead of None
-                print(f"DEBUG: Sample {current_id} -> Label: {label_info['state']} | Cands: {label_info['candidate_count']}", flush=True)
+                # For better traceability in logs
+                sample_num = row.get('rvs_sample_number', 'N/A')
+                print(f"DEBUG: key={current_id} (sample#{sample_num}) -> Label: {label_info['state']} | Cands: {label_info['candidate_count']}", flush=True)
+
 
         except Exception as e:
             import traceback

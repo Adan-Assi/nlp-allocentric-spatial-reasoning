@@ -78,7 +78,7 @@ if __name__ == "__main__":
         # Load the Silver Standard
         print(f"📂 Loading {city} Silver Standard...")
         df = pd.read_parquet(input_parquet)
-        
+
         all_experiments = []
 
         # We only want to generate variants for 'Answerable' rows to keep the test clean
@@ -89,13 +89,19 @@ if __name__ == "__main__":
             # Convert row to dict for the generator
             sample_dict = row.to_dict()
             sample_variants = generate_variants(sample_dict)
-            
+
             all_experiments.append({
-                "sample_id": sample_dict.get('sample_id', 'N/A'),
-                "city": city,
-                "original_text": sample_dict.get('instruction', ''),
-                "gold_goal_node": sample_dict.get('gold_goal_node'),
-                "variants": sample_variants
+                "sample_id":           sample_dict.get('sample_id', 'N/A'),
+                "city":                city,
+                "original_text":       sample_dict.get('instruction', ''),
+                "extracted_category":  sample_dict.get('extracted_category'),
+                "extracted_direction": sample_dict.get('extracted_direction'),
+                "extracted_noun":      sample_dict.get('extracted_noun'),
+                "start_node":          str(sample_dict.get('start_node', '')),
+                "gold_goal_node":      sample_dict.get('gold_goal_node'),
+                "gold_goal_lat":       sample_dict.get('gold_goal_lat'),
+                "gold_goal_lon":       sample_dict.get('gold_goal_lon'),
+                "variants":            sample_variants,
             })
 
         # Save city-specific variants

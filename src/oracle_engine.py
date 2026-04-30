@@ -11,6 +11,12 @@ import math
 import numpy as np
 from scipy.spatial import KDTree
 
+from sklearn.metrics.pairwise import cosine_similarity
+import numpy as np
+
+from src.model_registry import get_embedding_model
+
+
 # --- PANDAS 2.0 COMPATIBILITY PATCH ---
 import pandas.core.indexes.base
 if not hasattr(pandas.core.indexes, 'numeric'):
@@ -47,6 +53,22 @@ class OracleEngine:
         self.city_name = city_name
         
         self._prepare_poi_data()
+        
+        # Model Loading
+        self._embedding_model = get_embedding_model()
+        print("MODEL ID ORACLE:", id(self._embedding_model))
+
+        print("🧠 Pre-encoding POI embeddings...", flush=True)
+        self._poi_embedding_matrix = self._embedding_model.encode(
+            self.poi_df['semantic_text'].tolist(),
+            convert_to_numpy=True,
+            normalize_embeddings=True,  # enables dot product = cosine similarity
+            show_progress_bar=True,
+            batch_size=256,             # process in batches for memory efficiency
+        )
+        print(f"✅ Encoded {len(self._poi_embedding_matrix)} POI embeddings.", flush=True)
+
+        self._query_cache = {}  # cache: query_text → query_vec
 
         # --- ADDED FOR WARP SPEED: GRAPH SPATIAL INDEX ---
         # 3. Build a KDTree for all nodes in the Graph
@@ -62,6 +84,7 @@ class OracleEngine:
         self.poi_tree = KDTree(self.poi_coords)
         print(f"DEBUG: POI Tree Bounds - Lat: {self.poi_coords[:,0].min()} to {self.poi_coords[:,0].max()}")
         print(f"DEBUG: POI Tree Bounds - Lon: {self.poi_coords[:,1].min()} to {self.poi_coords[:,1].max()}")
+
 
         # --- ADDED FOR O(1) REACHABILITY: SCC LOOKUP ---
         # Manhattan's graph is massive; nx.has_path() will take ~1s per call otherwise.
@@ -86,7 +109,6 @@ class OracleEngine:
             geo_col = 'geometry'
 
         if geo_col:
-            # DELETE PRINT LATER
             print(f"📍 Extracting coordinates from {config.CURRENT_CITY} '{geo_col}' column...")
             # Some objects are Points (have .x), some are Polygons (need .centroid.x)
             self.poi_df['x'] = self.poi_df[geo_col].apply(lambda p: p.x if hasattr(p, 'x') else p.centroid.x)
@@ -123,7 +145,143 @@ class OracleEngine:
                 )
             else:
                 self.poi_df[f'clean_{col}'] = ""
-    
+        
+        # --- Semantic Dense Retrieval Text (Phase 3) ---
+        # --- Semantic Dense Retrieval Text (Phase 3) ---
+        print(f"🧠 Building semantic_text for {self.city_name} POIs...", flush=True)
+        self.poi_df["semantic_text"] = self.poi_df.apply(
+            lambda row: self._poi_to_text(row), axis=1
+        )
+
+        # --- Positional index for embedding matrix alignment ---
+        # CRITICAL: reset_index ensures df indices are 0,1,2,...,N-1
+        # so that filtered_df['_embed_idx'] correctly maps to
+        # self._poi_embedding_matrix rows built in the same order.
+        # Without this, matrix[847] could fetch the wrong POI's embedding.
+        self.poi_df = self.poi_df.reset_index(drop=True)
+        self.poi_df['_embed_idx'] = range(len(self.poi_df))
+            
+    # ---------- Information Retrieval Layer (City-Agnostic) ---------- #
+    def _poi_to_text(self, row) -> str:
+        """
+        Convert a POI row into a natural language description for SentenceBERT.
+        Driven by config.POI_TEXT_FIELDS_PRIORITY — no hardcoded field lists.
+        Deduplicates values across all columns to prevent "cafe. cafe." artifacts.
+        """
+        parts = []
+        seen = set()
+
+        for col in config.POI_TEXT_FIELDS_PRIORITY:
+            if col not in row.index:
+                continue
+            val = row.get(col)
+            if pd.isna(val):
+                continue
+            val = str(val).strip().replace('_', ' ')
+            if not val or val.lower() in ('nan', 'yes', 'no', ''):
+                continue
+            val_lower = val.lower()
+            if val_lower in seen:
+                continue
+            seen.add(val_lower)
+
+            # Format contextually
+            if col == 'brand' and parts:
+                parts.append(f"Brand: {val}")
+            elif col == 'addr:street':
+                parts.append(f"on {val}")
+            else:
+                parts.append(val)
+
+        return ". ".join(parts) + "." if parts else "unknown place."
+
+
+    def _build_query_text(self, tags: dict, landmark_name: str) -> str:
+        """
+        Build natural language query from landmark name + OSM tags.
+        Produces sentence-style text to align with _poi_to_text output.
+
+        Example:
+            landmark_name = "CVS"
+            tags = {"amenity": "pharmacy"}
+        →   "CVS pharmacy"
+
+            landmark_name = "coffee shop"
+            tags = {"amenity": "cafe"}
+        →   "coffee shop cafe"
+        """
+        parts = []
+
+        if landmark_name:
+            cleaned = str(landmark_name).strip().replace('_', ' ')
+            if cleaned:
+                parts.append(cleaned)
+
+        if tags:
+            for key, value in tags.items():
+                if isinstance(value, list):
+                    # Take first 2 values to keep query concise
+                    vals = [str(v).replace('_', ' ').strip() 
+                            for v in value[:2] if str(v).strip()]
+                    parts.extend(vals)
+                else:
+                    val = str(value).replace('_', ' ').strip()
+                    if val and val.lower() not in ('yes', 'nan', ''):
+                        parts.append(val)
+
+        # Natural language — not structured key:value pairs
+        return " ".join(parts)
+
+
+    def _semantic_score(self, filtered_df: pd.DataFrame,
+                    tags: dict, landmark_name: str) -> pd.DataFrame:
+        
+        if filtered_df.empty:
+            return filtered_df
+
+        query_text = self._build_query_text(tags, landmark_name)
+        if not query_text.strip():
+            res_df = filtered_df.copy()
+            res_df["score"] = 0.0
+            return res_df
+
+        # Encode query once — this is unavoidable
+        if query_text not in self._query_cache:
+            self._query_cache[query_text] = self._embedding_model.encode(
+                query_text,
+                convert_to_numpy=True,
+                normalize_embeddings=True,
+                show_progress_bar=False,
+            )
+        query_vec = self._query_cache[query_text]
+
+
+
+
+
+        # Use precomputed matrix
+        # Get integer positions relative to poi_df (not label indices)
+        poi_positions = filtered_df['_embed_idx'].tolist()
+        poi_vecs = self._poi_embedding_matrix[poi_positions]
+
+        # Dot product of normalized vectors = cosine similarity
+        similarities = poi_vecs @ query_vec  # shape: (n_candidates,)
+
+        res_df = filtered_df.copy()
+        res_df["score"] = similarities
+
+        # Category prior
+        cat_mask = pd.Series(False, index=res_df.index)
+        if tags:
+            for k, v in tags.items():
+                if k in res_df.columns:
+                    matches = (res_df[k].isin(v) if isinstance(v, list)
+                            else (res_df[k] == v))
+                    cat_mask |= matches.fillna(False)
+        res_df.loc[cat_mask, "score"] += 0.10
+
+        return res_df
+    # ------------------------------------------------------------#
 
     def get_graph_node(self, rvs_id: str) -> str:
         if not rvs_id:
@@ -359,7 +517,7 @@ class OracleEngine:
             
         return filtered_df.loc[nearest_idx, 'graph_node_id']
 
-
+    # spatial filtering → candidate ranking → sorting → solve()
     def resolve_all_candidates(self, tags: dict, landmark_name: str = "", score_threshold: float = 0.5, bounds: tuple = None) -> list:
         """
         City-Agnostic Candidate Resolution.
@@ -405,26 +563,11 @@ class OracleEngine:
         if filtered_df.empty: return []
 
         # --- 2. WEIGHTED SCORING (Scalable Column Logic) ---
-        query = str(landmark_name).lower()
-        safe_query = re.escape(query)
-        
-        # Use columns defined in config.POI_SEARCH_COLUMNS for portability
-        search_cols = getattr(config, 'POI_SEARCH_COLUMNS', ['name'])
-        
-        # Calculate scores without hardcoding column names
-        name_mask = filtered_df['name'].fillna("").str.lower().str.contains(safe_query, na=False)
-        
-        cat_mask = pd.Series(False, index=filtered_df.index)
-        if tags:
-            for k, v in tags.items():
-                if k in filtered_df.columns:
-                    matches = filtered_df[k].isin(v) if isinstance(v, list) else (filtered_df[k] == v)
-                    cat_mask |= matches.fillna(False)
-
-        res_df = filtered_df.copy()
-        res_df['score'] = 0.0
-        res_df.loc[name_mask, 'score'] += 2.5
-        res_df.loc[cat_mask, 'score'] += 1.5
+        res_df = self._semantic_score(
+            filtered_df,
+            tags,
+            landmark_name
+        )
         
         # --- 3. FILTER & FORMAT ---
         hits = res_df[res_df['score'] >= score_threshold]
@@ -433,7 +576,6 @@ class OracleEngine:
         for _, row in hits.iterrows():
             node_id = row.get('graph_node_id')
             if node_id is None or node_id not in self.G.nodes:
-                print(f"DEBUG G id in resolve: {id(self.G)}, node_id={node_id!r}, in_G={node_id in self.G.nodes}")
                 continue  # skip unresolvable POIs
                         
             results.append({

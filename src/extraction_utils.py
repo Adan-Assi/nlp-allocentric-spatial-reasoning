@@ -5,9 +5,8 @@ import unicodedata
 import numpy as np
 
 # Semantic Matching (SOTA approach)
-from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
-# model = SentenceTransformer('all-MiniLM-L6-v2')
+from src.model_registry import get_embedding_model
 
 # ---------------------------------------------------------------------------
 # Module-level compiled regexes
@@ -213,13 +212,13 @@ class CategoricalMatcher:
         # --- Semantic Matching Setup (Step 4) ---
         # Load model once: 'all-MiniLM-L6-v2' is small (80MB), fast,
         # and strong on short phrase similarity tasks.
-        print("🧠 Loading semantic embedding model...", flush=True)
-        self._embed_model = SentenceTransformer('all-MiniLM-L6-v2')
+        self._embedding_model = get_embedding_model()
+        print("MODEL ID EXTRACTION:", id(self._embedding_model))
 
         # Pre-encode all category descriptions at init time — O(|categories|) once.
         # At query time, only the input noun is encoded — O(1) amortized.
         self._category_keys = list(CATEGORY_DESCRIPTIONS.keys())
-        self._category_embeddings = self._embed_model.encode(
+        self._category_embeddings = self._embedding_model.encode(
             [CATEGORY_DESCRIPTIONS[k] for k in self._category_keys],
             normalize_embeddings=True,  # enables dot product as cosine similarity
             show_progress_bar=False,
@@ -236,7 +235,7 @@ class CategoricalMatcher:
         cosine similarity of 0.30 means meaningful semantic overlap.
         Lower = more permissive, Higher = more strict.
         """
-        query_emb = self._embed_model.encode(
+        query_emb = self._embedding_model.encode(
             [text], normalize_embeddings=True, show_progress_bar=False
         )
         scores = (self._category_embeddings @ query_emb.T).flatten()
@@ -279,8 +278,6 @@ class CategoricalMatcher:
         # Handles: synonyms, paraphrases, context-dependent disambiguation.
         # Temporary debug inside step 4
         return self._semantic_match(text_lower)
-
-
 
 # Singleton — instantiated once after the class definition
 matcher = CategoricalMatcher()

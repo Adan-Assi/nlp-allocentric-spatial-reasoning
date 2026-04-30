@@ -50,3 +50,23 @@ notebooks/cache/
 logs/
 
 venv_linux/
+
+# ---------- EXCEPTIONS: Files that take a while to generate ---------- 
+
+# Keep city silver standard files
+!data/**/manhattan_silver_standard.parquet
+!data/**/philadelphia_silver_standard.parquet
+!data/**/pittsburgh_silver_standard.parquet
+
+# Keep original city instruction files (rather small, have original instructions)
+!data/**/manhattan.json
+!data/**/philadelphia.json
+!data/**/pittsburgh.json
+
+# Keep generated masked instruction files
+!data/**/underspecified_variants.json
+!data/**/underspecified_variants_labeled.json
+
+# Keep evaluation parquet files
+!reports/llm_audits/LLM_DEGRADATION_INPUT.parquet
+!reports/llm_audits/LLM_DEGRADATION_RESULTS.parquet

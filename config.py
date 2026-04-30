@@ -343,3 +343,17 @@ METRIC_REACHABILITY_FAILURE = "unreachable_rate"
 
 # Thresholds for the resolve_all_candidates method
 SEMANTIC_THRESHOLD = 0.5
+
+POI_TEXT_FIELDS_PRIORITY = [
+    "name",        # primary identity
+    "brand",       # corporate identity  
+    "amenity",     # functional category
+    "shop",        # retail category
+    "tourism",     # tourism category
+    "cuisine",     # food type
+    "leisure",     # recreational
+    "historic",    # historical
+    "man_made",    # infrastructure
+    "building",    # structural
+    "addr:street", # spatial grounding — last, least semantic
+]
