@@ -1,4 +1,5 @@
 import pickle
+from pydoc import text
 import pandas as pd
 import networkx as nx
 import config
@@ -29,6 +30,8 @@ _DIR_MAP = {
     'NORTHEAST': 'NE', 'NORTHWEST': 'NW',
     'SOUTHEAST': 'SE', 'SOUTHWEST': 'SW',
 }
+
+RESOLUTION_BLOCKLIST = {'[mask]', 'the [mask]', '[dir_mask]', 'the [dir_mask]'}
 
 class OracleEngine:
     def __init__(self, graph_path_or_obj, poi_path_or_df, node_prefix, city_name):
@@ -255,10 +258,6 @@ class OracleEngine:
             )
         query_vec = self._query_cache[query_text]
 
-
-
-
-
         # Use precomputed matrix
         # Get integer positions relative to poi_df (not label indices)
         poi_positions = filtered_df['_embed_idx'].tolist()
@@ -305,6 +304,9 @@ class OracleEngine:
         The "Proximity-Aware" Oracle. Matches human-readable names to Node IDs 
         within a specific radius of a context node.
         """
+        if landmark_name.strip().lower() in RESOLUTION_BLOCKLIST:
+            return None
+
         # 1. Clean input
         target = re.sub(r'[^a-zA-Z0-9]', '', landmark_name).lower()
         if not target:
