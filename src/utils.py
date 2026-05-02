@@ -57,16 +57,17 @@ def get_clamped_radius(area_m2):
     return max(config.RADIUS_MIN, min(scaled_radius, config.RADIUS_MAX))
 
 
-def is_within_buffer(G, agent_node, landmark_coords, radius):
+def is_within_buffer(G, agent_node, landmark_coords, radius=None):
     """
     Checks if agent node is within a specific radius of landmark coordinates.
-    Now used with get_clamped_radius for dynamic 'At/Near' logic.
     """
     if radius is None:
-        radius = config.SUCCESS_RADIUS # Fallback to global default if not provided
+        # Dynamically fetch the radius based on config.CURRENT_CITY
+        radius = config.get_success_radius() 
 
     agent_coords = get_node_coords(G, agent_node)
-    dist = get_geodesic_dist_raw(agent_coords[0], agent_coords[1], landmark_coords[0], landmark_coords[1])
+    dist = get_geodesic_dist_raw(agent_coords[0], agent_coords[1], 
+                                 landmark_coords[0], landmark_coords[1])
     return dist <= radius
 
 # --- DIRECTIONAL & BEARING UTILITIES ---
@@ -88,6 +89,7 @@ def get_dominant_direction(lat1, lon1, lat2, lon2):
 
 def calculate_bearing(lat1, lon1, lat2, lon2):
     """Calculates the bearing between two GPS points (0-360 degrees)."""
+
     lat1, lon1, lat2, lon2 = map(math.radians, [lat1, lon1, lat2, lon2])
     d_lon = lon2 - lon1
     y = math.sin(d_lon) * math.cos(lat2)
@@ -110,6 +112,47 @@ def get_coarse_direction(bearing):
     if 135 <= bearing < 225: return "S"
     if 225 <= bearing < 315: return "W"
     return "N"
+
+
+def get_direction_8way(lat1, lon1, lat2, lon2):
+    """
+    Maps the bearing between two GPS points to an 8-way compass direction.
+    Uses centralized config parameters for sector math.
+    """
+    bearing = calculate_bearing(lat1, lon1, lat2, lon2)
+
+    # 8 equal compass sectors, each 45 degrees wide.
+    # Adding 22.5 shifts the sector boundaries so N is centered on 0/360.
+
+    idx = int(((bearing + config.COMPASS_CENTERING_OFFSET) % 360) // config.COMPASS_SECTOR_ANGLE)
+    return config.COMPASS_DIRECTIONS[idx]
+
+
+def direction_matches(actual_direction: str, target_direction: str) -> bool:
+    """
+    Direction comparison with a small cardinal-vs-intercardinal compatibility layer.
+    """
+    if not actual_direction or not target_direction:
+        return True
+
+    # Normalize to uppercase and strip whitespace for robust comparison
+    actual = actual_direction.upper().strip() 
+    target = target_direction.upper().strip()
+
+    if target in {"NE", "NW", "SE", "SW"}:
+        return actual == target
+
+    # Allows "N" to match "NE" and "NW", etc. (but not the reverse)
+    compatible = {
+        "N": {"NW", "N", "NE"},
+        "E": {"NE", "E", "SE"},
+        "S": {"SE", "S", "SW"},
+        "W": {"SW", "W", "NW"},
+    }
+
+    # Target is cardinal → allow matches to compatible intercardinals
+    return actual in compatible.get(target, {target})
+
 
 # --- VECTOR RELATIONAL LOGIC ---
 
@@ -136,19 +179,45 @@ def haversine_vectorized(lat1, lon1, lat2, lon2):
     """
     Calculates the great circle distance between two points 
     on the earth (specified in decimal degrees).
+    Uses high-performance NumPy vectorization for large-scale spatial queries.
     """
     # Earth radius in meters
     R = 6371000
     
-    # Convert decimal degrees to radians 
-    lat1, lon1, lat2, lon2 = map(np.radians, [lat1, lon1, lat2, lon2])
+    # Use NumPy's native radian conversion (fast for arrays)
+    # This replaces the slow map(np.radians, ...) call we previously had
+    lat1, lon1, lat2, lon2 = np.radians(lat1), np.radians(lon1), np.radians(lat2), np.radians(lon2)
 
     # Haversine formula 
     dlat = lat2 - lat1 
     dlon = lon2 - lon1 
+    
+    # a = sin²(Δφ/2) + cos φ1 ⋅ cos φ2 ⋅ sin²(Δλ/2)
     a = np.sin(dlat/2.0)**2 + np.cos(lat1) * np.cos(lat2) * np.sin(dlon/2.0)**2
-    c = 2 * np.arcsin(np.sqrt(a)) 
+    
+    # c = 2 ⋅ atan2( √a, √(1−a) )
+    # Using arctan2 is more robust than arcsin for floating point errors
+    c = 2 * np.arctan2(np.sqrt(a), np.sqrt(1 - a)) 
+    
     return R * c
+
+
+def haversine(lat1, lon1, lat2, lon2):
+    """
+    Calculates the great circle distance between two points 
+    on the earth in meters (scalar version).
+    """
+    R = 6371000  # Earth radius in meters
+    
+    phi1, phi2 = math.radians(lat1), math.radians(lat2)
+    dphi = math.radians(lat2 - lat1)
+    dlambda = math.radians(lon2 - lon1)
+    
+    a = math.sin(dphi/2)**2 + math.cos(phi1)*math.cos(phi2)*math.sin(dlambda/2)**2
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+    
+    return R * c
+
 
 def apply_geodesic_gatekeeper(agent_coords, candidates_df, radius=1500):
     """
@@ -173,18 +242,24 @@ def apply_geodesic_gatekeeper(agent_coords, candidates_df, radius=1500):
 
 # --- CONNECTIVITY & GRAPH OPTIMIZATION ---
 
-def get_scc_map(G):
+def get_connectivity_map(G):
     """
     Generates a mapping of Node ID -> Component ID.
-    Two nodes can reach each other if and only if they share the same Component ID.
+    Uses Undirected components to represent physical urban connectivity.
     """
-    scc = list(nx.strongly_connected_components(G))
-    # Create a dictionary where key is node_id and value is the index of its SCC
-    scc_map = {}
-    for i, component in enumerate(scc):
+    # 'Strongly' implies directionality (Car logic)
+    # 'Connected' implies physical access (Human logic)
+    undirected_G = G.to_undirected()
+
+    # Convert to undirected to match the origianl RVS paper's "Physical Connectivity"
+    components = list(nx.connected_components(undirected_G))
+    
+    conn_map = {}
+    for i, component in enumerate(components):
         for node in component:
-            scc_map[node] = i
-    return scc_map
+            conn_map[node] = i
+    return conn_map, len(components)
+
 
 def is_reachable_fast(scc_map, start_node, end_node):
     """

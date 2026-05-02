@@ -1,0 +1,77 @@
+Starting Nearest-POI Baseline
+Date: Sat May  2 04:11:21 PM IDT 2026
+Node: s-002
+Loaded 21049 samples
+By city:
+city
+manhattan       16066
+philadelphia     2942
+pittsburgh       2041
+Loaded 7000 start coords for manhattan
+Loaded 1023 start coords for pittsburgh
+Loaded 1278 start coords for philadelphia
+
+Processing manhattan (16066 samples)...
+📍 Extracting coordinates from manhattan 'centroid' column...
+🧠 Building semantic_text for manhattan POIs...
+🧠 Loading semantic embedding model on cuda...
+MODEL ID ORACLE: 124530784042096
+🧠 Pre-encoding POI embeddings...
+✅ Encoded 20979 POI embeddings.
+DEBUG: POI Tree Bounds - Lat: 40.7008035 to 40.78725765190852
+DEBUG: POI Tree Bounds - Lon: -74.0191995704594 to -73.9480556
+DEBUG: Calculating Connectivity Map for manhattan...
+DEBUG: Oracle initialized with 74137 nodes and 1 components.
+DEBUG: [CITY: manhattan] Using Salience Ratio: 0.7
+Checkpoint saved. Total so far: 16066
+
+Processing philadelphia (2942 samples)...
+📍 Extracting coordinates from philadelphia 'centroid' column...
+🧠 Building semantic_text for philadelphia POIs...
+MODEL ID ORACLE: 124530784042096
+🧠 Pre-encoding POI embeddings...
+✅ Encoded 10302 POI embeddings.
+DEBUG: POI Tree Bounds - Lat: 39.90421688507595 to 39.99993273619913
+DEBUG: POI Tree Bounds - Lon: -75.22318774482177 to -75.0771418666148
+DEBUG: Calculating Connectivity Map for philadelphia...
+DEBUG: Oracle initialized with 63737 nodes and 1 components.
+DEBUG: [CITY: philadelphia] Using Salience Ratio: 0.5
+Checkpoint saved. Total so far: 19008
+
+Processing pittsburgh (2041 samples)...
+📍 Extracting coordinates from pittsburgh 'centroid' column...
+🧠 Building semantic_text for pittsburgh POIs...
+MODEL ID ORACLE: 124530784042096
+🧠 Pre-encoding POI embeddings...
+✅ Encoded 4998 POI embeddings.
+DEBUG: POI Tree Bounds - Lat: 40.415634943116146 to 40.46129810785895
+DEBUG: POI Tree Bounds - Lon: -80.0348241 to -79.92981901477457
+DEBUG: Calculating Connectivity Map for pittsburgh...
+DEBUG: Oracle initialized with 31036 nodes and 1 components.
+DEBUG: [CITY: pittsburgh] Using Salience Ratio: 0.5
+Checkpoint saved. Total so far: 21049
+
+Saved 21049 rows to /vol/joberant_nobck/data/NLP_368307701_2526a/adanassi/nlp-allocentric-spatial-reasoning/reports/llm_audits/NEAREST_POI_BASELINE.parquet
+
+Nearest-POI Baseline Results:
+Success@250m: 2.8%
+Success@100m: 0.8%
+
+By variant_type:
+variant_type
+mask_both          0.028
+mask_directions    0.028
+mask_landmark      0.028
+
+By oracle_label:
+oracle_label
+Ambiguous        0.029
+Answerable       0.019
+Contradictory    0.032
+
+By city:
+city
+manhattan       0.021
+philadelphia    0.036
+pittsburgh      0.078
+Finished at Sat May  2 04:26:23 PM IDT 2026

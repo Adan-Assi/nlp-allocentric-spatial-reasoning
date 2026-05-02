@@ -1,0 +1,55 @@
+🚀 Starting Labeling Pipeline for: philadelphia
+📅 Date: Thu Apr 30 12:40:48 AM IDT 2026
+🧠 Loading semantic embedding model...
+MODEL ID EXTRACTION: 126142998639088
+✅ Semantic matcher ready with 31 categories.
+
+🏙️  --- Processing City: PHILADELPHIA ---
+DEBUG: Real Path: /vol/joberant_nobck/data/NLP_368307701_2526a/adanassi/nlp-allocentric-spatial-reasoning/data/philadelphia/philadelphia_graph.gpickle
+DEBUG: File Size on Disk: 27451157 bytes
+DEBUG: Graph Loaded. Node count: 63737
+📍 Extracting coordinates from philadelphia 'centroid' column...
+🧠 Building semantic_text for philadelphia POIs...
+MODEL ID ORACLE: 126142998639088
+🧠 Pre-encoding POI embeddings...
+✅ Encoded 10302 POI embeddings.
+DEBUG: POI Tree Bounds - Lat: 39.90421688507595 to 39.99993273619913
+DEBUG: POI Tree Bounds - Lon: -75.22318774482177 to -75.0771418666148
+DEBUG: Calculating Connectivity Map for philadelphia...
+DEBUG: Oracle initialized with 63737 nodes and 1 components.
+DEBUG: [CITY: philadelphia] Using Salience Ratio: 0.5
+✅ Solver Initialized: Using Oracle's map with 1 components.
+ℹ️ Detected JSONL format for philadelphia. Switching to lines=True...
+DEBUG: key=9175 (sample#N/A) -> Label: Answerable | Cands: 5
+DEBUG: key=9225 (sample#N/A) -> Label: Answerable | Cands: 99
+DEBUG: key=9275 (sample#N/A) -> Label: Contradictory | Cands: 0
+DEBUG: key=9325 (sample#N/A) -> Label: Answerable | Cands: 16
+DEBUG: key=9375 (sample#N/A) -> Label: Answerable | Cands: 1
+DEBUG: key=9425 (sample#N/A) -> Label: Answerable | Cands: 1
+DEBUG: key=9475 (sample#N/A) -> Label: Answerable | Cands: 72
+DEBUG: key=9525 (sample#N/A) -> Label: Answerable | Cands: 63
+DEBUG: key=9575 (sample#N/A) -> Label: Answerable | Cands: 122
+DEBUG: key=9625 (sample#N/A) -> Label: Answerable | Cands: 1
+DEBUG: key=9675 (sample#N/A) -> Label: Answerable | Cands: 83
+DEBUG: key=9725 (sample#N/A) -> Label: Answerable | Cands: 30
+DEBUG: key=9775 (sample#N/A) -> Label: Answerable | Cands: 7
+DEBUG: key=9825 (sample#N/A) -> Label: Answerable | Cands: 136
+DEBUG: key=9875 (sample#N/A) -> Label: Answerable | Cands: 17
+DEBUG: key=9925 (sample#N/A) -> Label: Answerable | Cands: 1
+DEBUG: key=9975 (sample#N/A) -> Label: Answerable | Cands: 28
+DEBUG: key=10025 (sample#N/A) -> Label: Answerable | Cands: 7
+DEBUG: key=10075 (sample#N/A) -> Label: Answerable | Cands: 307
+DEBUG: key=10125 (sample#N/A) -> Label: Answerable | Cands: 100
+DEBUG: key=10175 (sample#N/A) -> Label: Answerable | Cands: 11
+DEBUG: key=10225 (sample#N/A) -> Label: Answerable | Cands: 116
+DEBUG: key=10275 (sample#N/A) -> Label: Answerable | Cands: 70
+DEBUG: key=10325 (sample#N/A) -> Label: Contradictory | Cands: 0
+DEBUG: key=10375 (sample#N/A) -> Label: Answerable | Cands: 11
+✅ Success! Generated 1278 labels for philadelphia.
+📊 Label Distribution:
+oracle_label
+Answerable       990
+Contradictory    288
+Name: count, dtype: int64
+
+✅ Finished processing philadelphia at Thu Apr 30 01:09:26 AM IDT 2026

@@ -25,23 +25,27 @@ def load_graph_safely(path):
 
 def process_city(city_name):
     print(f"\n🏙️  --- Processing City: {city_name.upper()} ---")
+        
+    # 1. Force the config update immediately
+    config.CURRENT_CITY = city_name 
     
-    # 1. Update Global Config Toggle
-    config.CURRENT_CITY = city_name
-    
-    # 2. Dynamic Path Fetching
+    # 2. Get the paths explicitly
     graph_path = config.get_graph_path()
-    poi_path = config.get_poi_path()    
+    poi_path = config.get_poi_path()
+
+    # Define json_path here so it points to the right city folder
     json_path = os.path.join(config.BASE_DIR, "data", city_name, config.CITY_SETTINGS[city_name]["raw_json"])
-
-    if not os.path.exists(json_path):
-        print(f"❌ Skipping {city_name}: JSON data not found at {json_path}")
-        return
-
-    # 3. Initialize Engines
+    
+    print(f"DEBUG: Real Path: {os.path.abspath(graph_path)}")
+    print(f"DEBUG: File Size on Disk: {os.path.getsize(graph_path)} bytes")
+    
+    # 3. Initialize
     G = load_graph_safely(graph_path)
-    oracle = OracleEngine(G, poi_path)
-    # The solver now gets the city-specific radius (80 or 100) automatically
+    node_count = len(G.nodes())
+
+    print(f"DEBUG: Graph Loaded. Node count: {len(G.nodes())}") # Verify this isn't 31036!
+
+    oracle = OracleEngine(G, poi_path, config.get_node_prefix(), city_name)
     solver = SymbolicSolver(oracle, search_radius=config.get_success_radius())
 
     # 4. Spatial Index for Fast Node Snapping
@@ -71,34 +75,61 @@ def process_city(city_name):
     for _, row in tqdm(df.iterrows(), total=len(df), desc=f"Labeling {city_name}"):
         try:
             instruction = row['content']
-            # Coordinates from the RVS JSON
-            s0_lat, s0_lon = row['rvs_start_point']
+            s0_lat, s0_lon = row['rvs_start_point'] # ← reads rvs_start_point
+
+            # 1. Start Node Resolution: ID-First, Snap-Second
+            start_node = fast_snap(s0_lat, s0_lon) # ← snaps those coordinates to nearest node
+
+            # SAFETY CHECK: Ensure snapped node is valid (exists in G)
+            if start_node not in G.nodes:
+                continue
+
+            # 2. THE SYMBOLIC SOLVER CALL
+            #label_info = solver.solve(instruction, start_node)
+            label_info = solver.solve(instruction, start_node, mode="resolve")
             
-            # Snap GPS to Graph Nodes
-            start_node = fast_snap(s0_lat, s0_lon)
-            
-            # --- THE SYMBOLIC SOLVER CALL ---
-            # This handles the extraction, resolution, and reachability in one go
-            # label_info contains: {'state', 'candidates', 'count'}
-            label_info = solver.solve(instruction, start_node)
-            
+            current_id = row.get('key', 'N/A')  # Just for print
+
+            _gold_goal_node = fast_snap(
+                row['rvs_goal_point'][0],
+                row['rvs_goal_point'][1]
+            )
+
+            # 3. Build Record with Matched Metadata Keys
             final_data.append({
-                "sample_id": row.get('rvs_sample_number', 'N/A'),
+                # Uniqueness: Use 'key' unique identification in Silver Standard
+                "sample_id": row.get('key', 'N/A'),
+                "rvs_sample_number": row.get('rvs_sample_number'),  # None for Philly, group ID for others
+                
                 "city": city_name,
                 "instruction": instruction,
                 "oracle_label": label_info['state'],
                 "candidate_count": label_info['candidate_count'],
                 "start_node": start_node,
-                "gold_goal_node": fast_snap(row['rvs_goal_point'][0], row['rvs_goal_point'][1]),
-                
-                # --- metadata columns ---
-                "extracted_category": label_info.get('category'),
-                "extracted_noun": label_info.get('raw_noun'),
-                "target_tags": label_info.get('target_tags')
+
+                # --- Goal node and coordinates (for potential future use in analysis or "Oracle 2" variant) ---
+                "gold_goal_node": _gold_goal_node,
+                "gold_goal_lat": G.nodes[_gold_goal_node]['y'] if _gold_goal_node in G.nodes else None,
+                "gold_goal_lon": G.nodes[_gold_goal_node]['x'] if _gold_goal_node in G.nodes else None,
+
+                # --- metadata columns (Matches solver.solve() keys) ---
+                "extracted_category": label_info.get('extracted_category'),
+                "extracted_noun": label_info.get('extracted_noun'),
+                "extracted_direction": label_info.get('extracted_direction'),
+                "target_node": label_info.get('target_node')
             })
+
+            # 4. Debug: Periodic timing check (Every 50 iterations)
+            if len(final_data) % 50 == 0:
+                # For better traceability in logs
+                sample_num = row.get('rvs_sample_number', 'N/A')
+                print(f"DEBUG: key={current_id} (sample#{sample_num}) -> Label: {label_info['state']} | Cands: {label_info['candidate_count']}", flush=True)
+
+
         except Exception as e:
-            # Silent fail for individual malformed rows to keep batch running
-            print(f"⚠️  Warning: Failed to process sample {row.get('rvs_sample_number', 'N/A')} in {city_name}. Error: {e}")
+            import traceback
+            print(f"⚠️  Warning: Failed on sample {row.get('rvs_sample_number', 'N/A')}.")
+            traceback.print_exc()
             continue
 
     # 7. Export to Parquet (Superior for large multi-city datasets)

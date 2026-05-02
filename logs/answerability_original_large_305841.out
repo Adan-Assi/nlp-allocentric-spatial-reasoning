@@ -1,0 +1,51 @@
+Starting Answerability Classification on Original Instructions — FLAN-T5-large
+Date: Sat May  2 06:09:10 PM IDT 2026
+Node: s-005
+Loaded 9301 samples | cities: ['manhattan', 'philadelphia', 'pittsburgh']
+Oracle 2 label distribution:
+oracle_label
+Ambiguous        6928
+Contradictory    2138
+Answerable        235
+Loading google/flan-t5-large on cuda...
+Running classification on 9301 samples (batch_size=8)...
+
+Saved 9301 rows → /vol/joberant_nobck/data/NLP_368307701_2526a/adanassi/nlp-allocentric-spatial-reasoning/reports/llm_audits/LLM_ANSWERABILITY_RESULTS_ORIGINAL_LARGE.parquet
+
+=======================================================
+ANSWERABILITY CLASSIFICATION SUMMARY — google/flan-t5-large (ORIGINAL)
+=======================================================
+
+Parse rate: 9301/9301 = 100.0%
+
+Overall accuracy: 2.5%
+Majority class baseline (Ambiguous): 74.5%
+
+Per-class results:
+  Answerable     : Acc=100.0% | N=235 | Pred dist={'Answerable': 235}
+  Ambiguous      : Acc=0.0% | N=6928 | Pred dist={'Answerable': 6927, 'Contradictory': 1}
+  Contradictory  : Acc=0.0% | N=2138 | Pred dist={'Answerable': 2137, 'Contradictory': 1}
+
+Predicted label distribution:
+predicted_label
+Answerable       9299
+Contradictory       2
+
+Full classification report:
+               precision    recall  f1-score   support
+
+   Answerable       0.03      1.00      0.05       235
+    Ambiguous       0.00      0.00      0.00      6928
+Contradictory       0.50      0.00      0.00      2138
+
+     accuracy                           0.03      9301
+    macro avg       0.18      0.33      0.02      9301
+ weighted avg       0.12      0.03      0.00      9301
+
+
+Confusion matrix (rows=oracle, cols=predicted):
+                       Pred: Answerable  Pred: Ambiguous  Pred: Contradictory
+Oracle: Answerable                  235                0                    0
+Oracle: Ambiguous                  6927                0                    1
+Oracle: Contradictory              2137                0                    1
+Finished at Sat May  2 06:21:16 PM IDT 2026

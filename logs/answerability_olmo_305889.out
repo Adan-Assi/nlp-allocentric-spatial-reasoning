@@ -1,0 +1,62 @@
+Starting Answerability Classification — OLMo-2-0425-1B-Instruct
+Date: Sat May  2 07:03:28 PM IDT 2026
+Node: s-004
+Loaded 21049 samples | cities: ['manhattan', 'pittsburgh', 'philadelphia']
+Loading allenai/OLMo-2-0425-1B-Instruct on cuda...
+Running classification on 21049 samples (batch_size=8)...
+
+Saved 21049 rows → /vol/joberant_nobck/data/NLP_368307701_2526a/adanassi/nlp-allocentric-spatial-reasoning/reports/llm_audits/LLM_ANSWERABILITY_RESULTS_OLMO.parquet
+
+=======================================================
+ANSWERABILITY CLASSIFICATION SUMMARY — allenai/OLMo-2-0425-1B-Instruct
+=======================================================
+
+Parse rate: 21047/21049 = 100.0%
+Unparseable outputs: 2
+
+Overall accuracy (all): 37.8%
+Accuracy (parseable only): 37.8%
+
+Majority class baseline (Contradictory): 42.9%
+
+Per-class results:
+  Answerable     : Acc=9.3% | N=3850 | Pred dist={'Ambiguous': 3488, 'Answerable': 359, 'Contradictory': 3}
+  Ambiguous      : Acc=92.8% | N=8169 | Pred dist={'Ambiguous': 7581, 'Answerable': 576, 'Contradictory': 10, 'UNPARSEABLE': 2}
+  Contradictory  : Acc=0.2% | N=9030 | Pred dist={'Ambiguous': 8195, 'Answerable': 819, 'Contradictory': 16}
+
+Accuracy by variant type:
+variant_type
+mask_both          0.117
+mask_directions    0.824
+mask_landmark      0.199
+
+Sample unparseable outputs:
+llm_output_raw
+turn right and head south toward the World Financial Center    1
+Waterhouse on your right. The address is                       1
+
+Predicted label distribution:
+predicted_label
+Ambiguous        19264
+Answerable        1754
+Contradictory       29
+UNPARSEABLE          2
+
+Full classification report:
+               precision    recall  f1-score   support
+
+   Answerable       0.20      0.09      0.13      3850
+    Ambiguous       0.39      0.93      0.55      8167
+Contradictory       0.55      0.00      0.00      9030
+
+     accuracy                           0.38     21047
+    macro avg       0.38      0.34      0.23     21047
+ weighted avg       0.43      0.38      0.24     21047
+
+
+Confusion matrix (rows=oracle, cols=predicted):
+                       Pred: Answerable  Pred: Ambiguous  Pred: Contradictory
+Oracle: Answerable                  359             3488                    3
+Oracle: Ambiguous                   576             7581                   10
+Oracle: Contradictory               819             8195                   16
+Finished at Sat May  2 07:53:16 PM IDT 2026

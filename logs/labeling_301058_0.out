@@ -1,0 +1,170 @@
+🚀 Starting Labeling Pipeline for: manhattan
+📅 Date: Thu Apr 30 12:40:48 AM IDT 2026
+🧠 Loading semantic embedding model...
+MODEL ID EXTRACTION: 127753741414800
+✅ Semantic matcher ready with 31 categories.
+
+🏙️  --- Processing City: MANHATTAN ---
+DEBUG: Real Path: /vol/joberant_nobck/data/NLP_368307701_2526a/adanassi/nlp-allocentric-spatial-reasoning/data/manhattan/manhattan_graph.gpickle
+DEBUG: File Size on Disk: 29309520 bytes
+DEBUG: Graph Loaded. Node count: 74137
+📍 Extracting coordinates from manhattan 'centroid' column...
+🧠 Building semantic_text for manhattan POIs...
+MODEL ID ORACLE: 127753741414800
+🧠 Pre-encoding POI embeddings...
+✅ Encoded 20979 POI embeddings.
+DEBUG: POI Tree Bounds - Lat: 40.7008035 to 40.78725765190852
+DEBUG: POI Tree Bounds - Lon: -74.0191995704594 to -73.9480556
+DEBUG: Calculating Connectivity Map for manhattan...
+DEBUG: Oracle initialized with 74137 nodes and 1 components.
+DEBUG: [CITY: manhattan] Using Salience Ratio: 0.7
+✅ Solver Initialized: Using Oracle's map with 1 components.
+ℹ️ Detected JSONL format for manhattan. Switching to lines=True...
+DEBUG: key=49 (sample#447) -> Label: Answerable | Cands: 123
+DEBUG: key=99 (sample#31) -> Label: Answerable | Cands: 533
+DEBUG: key=149 (sample#37) -> Label: Answerable | Cands: 1
+DEBUG: key=199 (sample#241) -> Label: Contradictory | Cands: 0
+DEBUG: key=249 (sample#321) -> Label: Answerable | Cands: 15
+DEBUG: key=299 (sample#184) -> Label: Answerable | Cands: 277
+DEBUG: key=349 (sample#378) -> Label: Answerable | Cands: 10
+DEBUG: key=399 (sample#276) -> Label: Answerable | Cands: 37
+DEBUG: key=449 (sample#228) -> Label: Answerable | Cands: 201
+DEBUG: key=499 (sample#63) -> Label: Contradictory | Cands: 0
+DEBUG: key=549 (sample#302) -> Label: Contradictory | Cands: 0
+DEBUG: key=599 (sample#235) -> Label: Answerable | Cands: 117
+DEBUG: key=649 (sample#97) -> Label: Answerable | Cands: 515
+DEBUG: key=699 (sample#128) -> Label: Answerable | Cands: 36
+DEBUG: key=749 (sample#60) -> Label: Contradictory | Cands: 0
+DEBUG: key=799 (sample#77) -> Label: Answerable | Cands: 547
+DEBUG: key=849 (sample#81) -> Label: Answerable | Cands: 28
+DEBUG: key=899 (sample#118) -> Label: Answerable | Cands: 27
+DEBUG: key=949 (sample#2) -> Label: Answerable | Cands: 37
+DEBUG: key=999 (sample#3) -> Label: Answerable | Cands: 295
+DEBUG: key=1049 (sample#86) -> Label: Contradictory | Cands: 0
+DEBUG: key=1099 (sample#327) -> Label: Answerable | Cands: 68
+DEBUG: key=1149 (sample#216) -> Label: Answerable | Cands: 167
+DEBUG: key=1199 (sample#186) -> Label: Contradictory | Cands: 0
+DEBUG: key=1249 (sample#226) -> Label: Contradictory | Cands: 0
+DEBUG: key=1299 (sample#23) -> Label: Answerable | Cands: 86
+DEBUG: key=1349 (sample#135) -> Label: Contradictory | Cands: 0
+DEBUG: key=1399 (sample#262) -> Label: Answerable | Cands: 22
+DEBUG: key=1449 (sample#402) -> Label: Answerable | Cands: 64
+DEBUG: key=1499 (sample#411) -> Label: Contradictory | Cands: 0
+DEBUG: key=1549 (sample#383) -> Label: Answerable | Cands: 817
+DEBUG: key=1599 (sample#193) -> Label: Answerable | Cands: 982
+DEBUG: key=1649 (sample#162) -> Label: Answerable | Cands: 8
+DEBUG: key=1699 (sample#32) -> Label: Answerable | Cands: 513
+DEBUG: key=1749 (sample#421) -> Label: Answerable | Cands: 506
+DEBUG: key=1799 (sample#191) -> Label: Answerable | Cands: 4
+DEBUG: key=1849 (sample#233) -> Label: Answerable | Cands: 53
+DEBUG: key=1899 (sample#134) -> Label: Answerable | Cands: 6
+DEBUG: key=1949 (sample#488) -> Label: Contradictory | Cands: 0
+DEBUG: key=1999 (sample#5) -> Label: Answerable | Cands: 86
+DEBUG: key=2049 (sample#108) -> Label: Answerable | Cands: 587
+DEBUG: key=2099 (sample#37) -> Label: Answerable | Cands: 79
+DEBUG: key=2149 (sample#72) -> Label: Answerable | Cands: 894
+DEBUG: key=2199 (sample#1) -> Label: Answerable | Cands: 74
+DEBUG: key=2249 (sample#436) -> Label: Answerable | Cands: 68
+DEBUG: key=2299 (sample#176) -> Label: Answerable | Cands: 132
+DEBUG: key=2349 (sample#99) -> Label: Contradictory | Cands: 0
+DEBUG: key=2399 (sample#325) -> Label: Answerable | Cands: 67
+DEBUG: key=2449 (sample#4) -> Label: Answerable | Cands: 12
+DEBUG: key=2499 (sample#245) -> Label: Answerable | Cands: 123
+DEBUG: key=2549 (sample#17) -> Label: Answerable | Cands: 552
+DEBUG: key=2599 (sample#89) -> Label: Contradictory | Cands: 0
+DEBUG: key=2649 (sample#359) -> Label: Contradictory | Cands: 0
+DEBUG: key=2699 (sample#18) -> Label: Answerable | Cands: 15
+DEBUG: key=2749 (sample#252) -> Label: Answerable | Cands: 220
+DEBUG: key=2799 (sample#6) -> Label: Contradictory | Cands: 0
+DEBUG: key=2849 (sample#139) -> Label: Answerable | Cands: 53
+DEBUG: key=2899 (sample#62) -> Label: Answerable | Cands: 17
+DEBUG: key=2949 (sample#100) -> Label: Answerable | Cands: 835
+DEBUG: key=2999 (sample#495) -> Label: Answerable | Cands: 758
+DEBUG: key=3049 (sample#265) -> Label: Answerable | Cands: 1296
+DEBUG: key=3099 (sample#352) -> Label: Answerable | Cands: 92
+DEBUG: key=3149 (sample#236) -> Label: Answerable | Cands: 492
+DEBUG: key=3199 (sample#152) -> Label: Answerable | Cands: 101
+DEBUG: key=3249 (sample#306) -> Label: Answerable | Cands: 1019
+DEBUG: key=3299 (sample#44) -> Label: Answerable | Cands: 68
+DEBUG: key=3349 (sample#374) -> Label: Answerable | Cands: 359
+DEBUG: key=3399 (sample#92) -> Label: Answerable | Cands: 169
+DEBUG: key=3449 (sample#192) -> Label: Answerable | Cands: 472
+DEBUG: key=3499 (sample#415) -> Label: Contradictory | Cands: 0
+DEBUG: key=3549 (sample#475) -> Label: Answerable | Cands: 516
+DEBUG: key=3599 (sample#389) -> Label: Answerable | Cands: 217
+DEBUG: key=3649 (sample#326) -> Label: Answerable | Cands: 51
+DEBUG: key=3699 (sample#184) -> Label: Contradictory | Cands: 0
+DEBUG: key=3749 (sample#277) -> Label: Contradictory | Cands: 0
+DEBUG: key=3799 (sample#247) -> Label: Answerable | Cands: 163
+DEBUG: key=3849 (sample#118) -> Label: Contradictory | Cands: 0
+DEBUG: key=3899 (sample#79) -> Label: Answerable | Cands: 3
+DEBUG: key=3949 (sample#158) -> Label: Answerable | Cands: 1098
+DEBUG: key=3999 (sample#185) -> Label: Answerable | Cands: 97
+DEBUG: key=4049 (sample#185) -> Label: Answerable | Cands: 160
+DEBUG: key=4099 (sample#170) -> Label: Answerable | Cands: 875
+DEBUG: key=4149 (sample#325) -> Label: Answerable | Cands: 18
+DEBUG: key=4199 (sample#252) -> Label: Answerable | Cands: 848
+DEBUG: key=4249 (sample#113) -> Label: Answerable | Cands: 49
+DEBUG: key=4299 (sample#479) -> Label: Contradictory | Cands: 0
+DEBUG: key=4349 (sample#110) -> Label: Contradictory | Cands: 0
+DEBUG: key=4399 (sample#102) -> Label: Answerable | Cands: 1132
+DEBUG: key=4449 (sample#132) -> Label: Answerable | Cands: 4
+DEBUG: key=4499 (sample#198) -> Label: Answerable | Cands: 229
+DEBUG: key=4549 (sample#97) -> Label: Answerable | Cands: 201
+DEBUG: key=4599 (sample#142) -> Label: Answerable | Cands: 22
+DEBUG: key=4649 (sample#214) -> Label: Answerable | Cands: 196
+DEBUG: key=4699 (sample#48) -> Label: Answerable | Cands: 216
+DEBUG: key=4749 (sample#378) -> Label: Contradictory | Cands: 0
+DEBUG: key=4799 (sample#59) -> Label: Answerable | Cands: 843
+DEBUG: key=4849 (sample#88) -> Label: Answerable | Cands: 61
+DEBUG: key=4899 (sample#398) -> Label: Answerable | Cands: 28
+DEBUG: key=4949 (sample#153) -> Label: Answerable | Cands: 658
+DEBUG: key=4999 (sample#98) -> Label: Contradictory | Cands: 0
+DEBUG: key=5049 (sample#367) -> Label: Contradictory | Cands: 0
+DEBUG: key=5099 (sample#121) -> Label: Contradictory | Cands: 0
+DEBUG: key=5149 (sample#480) -> Label: Answerable | Cands: 744
+DEBUG: key=5199 (sample#382) -> Label: Contradictory | Cands: 0
+DEBUG: key=5249 (sample#245) -> Label: Answerable | Cands: 771
+DEBUG: key=5299 (sample#63) -> Label: Contradictory | Cands: 0
+DEBUG: key=5349 (sample#6) -> Label: Answerable | Cands: 650
+DEBUG: key=5399 (sample#120) -> Label: Answerable | Cands: 670
+DEBUG: key=5449 (sample#67) -> Label: Answerable | Cands: 10
+DEBUG: key=5499 (sample#3) -> Label: Contradictory | Cands: 0
+DEBUG: key=5549 (sample#398) -> Label: Answerable | Cands: 127
+DEBUG: key=5599 (sample#217) -> Label: Answerable | Cands: 361
+DEBUG: key=5649 (sample#376) -> Label: Answerable | Cands: 187
+DEBUG: key=5699 (sample#294) -> Label: Answerable | Cands: 143
+DEBUG: key=5749 (sample#324) -> Label: Contradictory | Cands: 0
+DEBUG: key=5799 (sample#325) -> Label: Answerable | Cands: 576
+DEBUG: key=5849 (sample#20) -> Label: Answerable | Cands: 199
+DEBUG: key=5899 (sample#44) -> Label: Answerable | Cands: 71
+DEBUG: key=5949 (sample#399) -> Label: Answerable | Cands: 760
+DEBUG: key=5999 (sample#82) -> Label: Answerable | Cands: 70
+DEBUG: key=6049 (sample#7) -> Label: Answerable | Cands: 398
+DEBUG: key=6099 (sample#158) -> Label: Answerable | Cands: 144
+DEBUG: key=6149 (sample#123) -> Label: Contradictory | Cands: 0
+DEBUG: key=6199 (sample#209) -> Label: Contradictory | Cands: 0
+DEBUG: key=6249 (sample#282) -> Label: Answerable | Cands: 106
+DEBUG: key=6299 (sample#240) -> Label: Answerable | Cands: 221
+DEBUG: key=6349 (sample#270) -> Label: Answerable | Cands: 33
+DEBUG: key=6399 (sample#261) -> Label: Answerable | Cands: 594
+DEBUG: key=6449 (sample#112) -> Label: Answerable | Cands: 74
+DEBUG: key=6499 (sample#141) -> Label: Answerable | Cands: 287
+DEBUG: key=6549 (sample#225) -> Label: Answerable | Cands: 9
+DEBUG: key=6599 (sample#122) -> Label: Answerable | Cands: 116
+DEBUG: key=6649 (sample#276) -> Label: Contradictory | Cands: 0
+DEBUG: key=6699 (sample#149) -> Label: Contradictory | Cands: 0
+DEBUG: key=6749 (sample#371) -> Label: Answerable | Cands: 16
+DEBUG: key=6799 (sample#205) -> Label: Answerable | Cands: 872
+DEBUG: key=6849 (sample#197) -> Label: Answerable | Cands: 26
+DEBUG: key=6899 (sample#209) -> Label: Answerable | Cands: 18
+DEBUG: key=6949 (sample#364) -> Label: Answerable | Cands: 509
+DEBUG: key=6999 (sample#378) -> Label: Contradictory | Cands: 0
+✅ Success! Generated 7000 labels for manhattan.
+📊 Label Distribution:
+oracle_label
+Answerable       5468
+Contradictory    1532
+Name: count, dtype: int64
+
+✅ Finished processing manhattan at Thu Apr 30 05:02:43 AM IDT 2026

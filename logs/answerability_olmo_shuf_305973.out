@@ -1,0 +1,63 @@
+Starting Answerability Classification — OLMo-2-0425-1B-Instruct (Shuffled 4-Shot)
+Date: Sat May  2 09:09:47 PM IDT 2026
+Node: s-005
+Loaded 21049 samples | cities: ['manhattan', 'pittsburgh', 'philadelphia']
+Loading allenai/OLMo-2-0425-1B-Instruct on cuda...
+Running classification on 21049 samples (batch_size=8)...
+
+Saved 21049 rows → /vol/joberant_nobck/data/NLP_368307701_2526a/adanassi/nlp-allocentric-spatial-reasoning/reports/llm_audits/LLM_ANSWERABILITY_RESULTS_SHUF.parquet
+
+=======================================================
+ANSWERABILITY CLASSIFICATION SUMMARY — allenai/OLMo-2-0425-1B-Instruct
+=======================================================
+
+Parse rate: 21039/21049 = 100.0%
+Unparseable outputs: 10
+
+Overall accuracy (all): 36.8%
+Accuracy (parseable only): 36.8%
+
+Majority class baseline (Contradictory): 42.9%
+
+Per-class results:
+  Answerable     : Acc=9.9% | N=3850 | Pred dist={'Ambiguous': 3461, 'Answerable': 381, 'Contradictory': 6, 'UNPARSEABLE': 2}
+  Ambiguous      : Acc=89.9% | N=8169 | Pred dist={'Ambiguous': 7342, 'Answerable': 810, 'Contradictory': 12, 'UNPARSEABLE': 5}
+  Contradictory  : Acc=0.2% | N=9030 | Pred dist={'Ambiguous': 8250, 'Answerable': 755, 'Contradictory': 22, 'UNPARSEABLE': 3}
+
+Accuracy by variant type:
+variant_type
+mask_both          0.116
+mask_directions    0.791
+mask_landmark      0.202
+
+Sample unparseable outputs:
+llm_output_raw
+Exactly one destination                                        8
+turn right and head south toward the World Financial Center    1
+Waterhouse on your right. The street you're                    1
+
+Predicted label distribution:
+predicted_label
+Ambiguous        19053
+Answerable        1946
+Contradictory       40
+UNPARSEABLE         10
+
+Full classification report:
+               precision    recall  f1-score   support
+
+   Answerable       0.20      0.10      0.13      3848
+    Ambiguous       0.39      0.90      0.54      8164
+Contradictory       0.55      0.00      0.00      9027
+
+     accuracy                           0.37     21039
+    macro avg       0.38      0.33      0.23     21039
+ weighted avg       0.42      0.37      0.24     21039
+
+
+Confusion matrix (rows=oracle, cols=predicted):
+                       Pred: Answerable  Pred: Ambiguous  Pred: Contradictory
+Oracle: Answerable                  381             3461                    6
+Oracle: Ambiguous                   810             7342                   12
+Oracle: Contradictory               755             8250                   22
+Finished at Sat May  2 09:57:30 PM IDT 2026

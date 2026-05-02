@@ -1,0 +1,30 @@
+🚀 Starting Oracle 2 labeling for manhattan
+📅 Date: Thu Apr 30 01:13:56 PM IDT 2026
+🖥️  Node: s-004
+🧠 Loading semantic embedding model on cpu...
+MODEL ID EXTRACTION: 136825367772320
+✅ Semantic matcher ready with 31 categories.
+
+🏙️  Oracle 2 Labeling: MANHATTAN
+📂 Loaded 5468 experiments
+🔧 Initializing Oracle 2 for manhattan...
+📍 Extracting coordinates from manhattan 'centroid' column...
+🧠 Building semantic_text for manhattan POIs...
+MODEL ID ORACLE: 136825367772320
+🧠 Pre-encoding POI embeddings...
+✅ Encoded 20979 POI embeddings.
+DEBUG: POI Tree Bounds - Lat: 40.7008035 to 40.78725765190852
+DEBUG: POI Tree Bounds - Lon: -74.0191995704594 to -73.9480556
+DEBUG: Calculating Connectivity Map for manhattan...
+DEBUG: Oracle initialized with 74137 nodes and 1 components.
+DEBUG: [CITY: manhattan] Using Salience Ratio: 0.7
+✅ Solver Initialized: Using Oracle's map with 1 components.
+✅ Oracle 2 ready.
+
+✅ Labeled 16066 variants | Skipped 0 experiments
+📊 Label distribution: {'Answerable': 3542, 'Ambiguous': 6241, 'Contradictory': 6283, 'error': 0}
+   Answerable: 3542 (22.0%)
+   Ambiguous: 6241 (38.8%)
+   Contradictory: 6283 (39.1%)
+💾 Saved to /vol/joberant_nobck/data/NLP_368307701_2526a/adanassi/nlp-allocentric-spatial-reasoning/data/manhattan/underspecified_variants_labeled.json
+✅ Finished at Thu Apr 30 09:52:54 PM IDT 2026

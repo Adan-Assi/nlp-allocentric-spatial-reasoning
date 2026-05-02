@@ -6,11 +6,16 @@ from pathlib import Path
 import heapq
 from matplotlib import category
 import networkx as nx
+import pandas as pd
 
 # Internal Project Imports
 import config
 from src.oracle_engine import OracleEngine
 import src.utils as utils
+
+from src.extraction_utils import extract_rvs_target
+
+SALIENCE_COLS = ['wikipedia', 'wikidata', 'brand', 'tourism', 'amenity', 'shop']
 
 class SymbolicSolver:
     """
@@ -34,18 +39,15 @@ class SymbolicSolver:
         # This replaces the hardcoded reliance on config.DISTANCE_FIXED_BUFFER
         self.search_radius = search_radius if search_radius is not None else config.DISTANCE_FIXED_BUFFER
 
-        # --- Pre-compute SCC for Instant Reachability ---
-        # We map every node ID to a 'Component ID' (an integer)
-        # Nodes in the same component can reach each other.
-        self.scc_lookup = {}
-        components = list(nx.strongly_connected_components(self.G))
-        for i, component in enumerate(components):
-            for node in component:
-                self.scc_lookup[node] = i
+        # --- Shared Connectivity Map (for Instant Reachability) ---
+        # We reference the map already built by the Oracle to ensure 
+        # consistency and save memory.
+        self.scc_lookup = oracle.scc_lookup
         
-        # DELETE PRINT
-        print(f"✅ Solver Initialized: Found {len(components)} isolated graph components.")
-
+        # Verify connectivity status
+        num_comp = len(set(self.scc_lookup.values())) if self.scc_lookup else 0
+        print(f"✅ Solver Initialized: Using Oracle's map with {num_comp} components.")
+        
         # Salvaged properties for the Dijkstra logic
         self.nodes = self.G.nodes(data=True)
         self.edges = self.G.adj
@@ -186,79 +188,157 @@ class SymbolicSolver:
 
     def check_reachability_scc(self, start_node: str, target_node: str) -> bool:
         """
-        Wrapper for the shared SCC utility. 
-        Verifies if a path exists between two nodes in O(1) time.
+        Undirected connectivity check — physically accessible, not legally routable.
+        Our project's addition to RVS methodology. O(1) via precomputed map.
         """
         return utils.is_reachable_fast(self.scc_lookup, start_node, target_node)
 
-    def solve(self, instruction_text: str, start_node: str) -> dict:
+    
+    def _apply_directional_filter(
+        self, candidates: list, start_node: str, target_dir: str
+    ) -> list:
+        """Filter candidates by direction, keeping originals on total miss (soft fallback)."""
+        if not target_dir or not candidates:
+            return candidates
+        cand_ids = [c['node_id'] for c in candidates]
+        filtered_ids = set(
+            self.oracle.filter_candidates_by_direction(start_node, cand_ids, target_dir)
+        )
+        if not filtered_ids:
+            return candidates  # soft fallback: direction killed everything, keep all
+        return [c for c in candidates if c['node_id'] in filtered_ids]
+
+
+    # This is the main method that processes an RVS instruction and produces a symbolic state.
+
+    def _pick_by_salience(self, candidates: list) -> dict:
+        """
+        Pick single best candidate using RVS paper's salience hierarchy.
+        Falls back to nearest-by-distance if no salience signal found.
+        """
+        def salience_rank(c):
+            row = self.oracle.poi_df[
+                self.oracle.poi_df['graph_node_id'] == c['node_id']
+            ]
+            if row.empty:
+                return (len(SALIENCE_COLS), c.get('dist', 9999))
+            r = row.iloc[0]
+            # tuple of (salience tier, distance) for sorting: lower is better
+            for i, col in enumerate(SALIENCE_COLS):
+                if col in r.index and pd.notna(r.get(col)) and str(r.get(col)) not in ('', 'nan', 'no'):
+                    return (i, c.get('dist', 9999))
+            return (len(SALIENCE_COLS), c.get('dist', 9999))
+
+        return min(candidates, key=salience_rank)
+
+
+    # Modes are: "resolve" or "label"
+    def solve(self, instruction_text: str, start_node: str, mode: str) -> dict:
         """
         Master Controller: Translates text into a Symbolic State.
         Uses the 1500m 'Elbow' Horizon and O(1) SCC Reachability.
+        
+        Label definitions (per project proposal + RVS paper):
+        Answerable   = exactly one candidate survives all filters + reachable
+        Contradictory = zero candidates, or candidate unreachable
+        Ambiguous    = reserved for underspecified variants (Step 4), AKA labeling mode
         """
 
-        from src.extraction_utils import extract_rvs_target
-        
-        # 1. Extraction: Get Category + Noun
-        category, raw_noun = extract_rvs_target(instruction_text)
-        tags = config.LANDMARK_GROUPS.get(category, {})
-        
-        # 2. Candidate Resolution (Phase A: Strict Tag Search)
+        if mode not in {"resolve", "label"}:
+            raise ValueError(f"mode must be 'resolve' or 'label', got '{mode}'")
+    
+        # ------ Phase A: Candidate Resolution ------
+        category, raw_noun, target_dir = extract_rvs_target(instruction_text)
+        tags       = config.LANDMARK_GROUPS.get(category, {})
         start_data = self.G.nodes[start_node]
-        candidates = self.oracle.resolve_nearby_candidates(
-            tags, 
-            start_data['y'], 
-            start_data['x'], 
-            radius_m=config.GLOBAL_SEARCH_HORIZON_METERS,
-            landmark_name=raw_noun
-        )
+        lat, lon   = start_data['y'], start_data['x']
+        horizon    = config.GLOBAL_SEARCH_HORIZON_METERS
 
-        # --- NEW: FALLBACK LOGIC ---
-        # If Category search fails, try a fuzzy name search globally in the area
-        if not candidates and raw_noun:
-            fallback_node = self.oracle.resolve_landmark(
-                raw_noun, 
-                context_node=start_node, 
-                radius_m=config.GLOBAL_SEARCH_HORIZON_METERS
-            )
-            if fallback_node:
-                # Wrap it in the candidate format the rest of the function expects
-                node_data = self.G.nodes[fallback_node]
-                candidates = [{"node_id": fallback_node, "coords": (node_data['y'], node_data['x'])}]
-        # ---------------------------
-
-        # 3. Label Assignment (The Silver Standard)
-        count = len(candidates)
         metadata = {
-            "category": category, 
-            "noun": raw_noun, 
-            "candidate_count": count
+            "mode":               mode,
+            "extracted_category": category,
+            "extracted_noun":     raw_noun,
+            "extracted_direction": target_dir,
         }
 
-        if count == 0:
+        # Step 1 — Strict: category + name + direction
+        candidates = self.oracle.resolve_nearby_candidates(
+            tags, lat, lon, radius_m=horizon, landmark_name=raw_noun
+        )
+        candidates = self._apply_directional_filter(candidates, start_node, target_dir)
+
+        # Step 2 — "Philly fallback": category + direction, no name
+        if not candidates:
+            candidates = self.oracle.resolve_nearby_candidates(
+                tags, lat, lon, radius_m=horizon, landmark_name=None
+            )
+            candidates = self._apply_directional_filter(candidates, start_node, target_dir)
+
+        # Step 3 — Last resort: global fuzzy name search
+        if not candidates and raw_noun:
+            fallback_node = self.oracle.resolve_landmark(
+                raw_noun, context_node=start_node, radius_m=horizon
+            )
+            if fallback_node:
+                node_data = self.G.nodes[fallback_node]
+                d = utils.haversine(lat, lon, node_data['y'], node_data['x'])
+                candidates = [{"node_id": fallback_node,
+                            "coords": (node_data['y'], node_data['x']),
+                            "dist": d}]
+
+        # Ensure every candidate has 'dist'
+        for c in candidates:
+            if 'dist' not in c:
+                clat, clon = c['coords']
+                c['dist'] = utils.haversine(lat, lon, clat, clon)
+
+
+        # ------ Phase B: Zero-candidate exit ------
+        metadata["candidate_count"] = len(candidates)
+
+        if not candidates:
             return {**metadata, "state": config.STATE_CONTRADICTORY}
         
-        # 3. Handle Candidate Density (The Salience Filter)
-        if count > 1:
-            # Sort candidates by distance
-            sorted_cands = sorted(candidates, key=lambda x: utils.haversine_vectorized(
-                start_data['y'], start_data['x'], x['coords'][0], x['coords'][1]
-            ))
-            
-            d1 = utils.haversine_vectorized(start_data['y'], start_data['x'], sorted_cands[0]['coords'][0], sorted_cands[0]['coords'][1])
-            d2 = utils.haversine_vectorized(start_data['y'], start_data['x'], sorted_cands[1]['coords'][0], sorted_cands[1]['coords'][1])
 
-            # Precedent: Paz-Argaman et al. (2020) "Gold Zone" 
-            # If the closest is within 200m and at least twice as close as the second option
-            if d1 < 200 and d1 < (d2 * config.get_salience_ratio()):
-                candidates = [sorted_cands[0]]
-            else:
-                # Still truly ambiguous (e.g., two cafes on the same block)
-                return {**metadata, "state": config.STATE_AMBIGUOUS}
+        # ------ Phase C: Reachability filter ------
+        # Not part of RVS methodology (which used human validation).
+        # Added as a graph-based sanity check: filters nodes on physically
+        # disconnected graph islands.
+        # Uses undirected connectivity per RVS paper's "physical access" framing...
+        # ...(not directed/legal routing).
+        # O(1) via precomputed SCC map. No-op for single-component cities.
+        reachable = [c for c in candidates
+             if self.check_reachability_scc(start_node, c['node_id'])]
+        
+        metadata["reachable_candidate_count"] = len(reachable)
 
-        # 4. Final Verification: Reachability
-        target_node = candidates[0]['node_id']
-        if self.check_reachability_scc(start_node, target_node):
-            return {**metadata, "state": config.STATE_ANSWERABLE, "target_node": target_node}
-        else:
+        if not reachable:
             return {**metadata, "state": config.STATE_CONTRADICTORY}
+
+
+        # ------ Phase D: Mode-specific labeling ------
+        if mode == "resolve":
+            # Oracle 1: pick most salient among reachable candidates.
+            # Salience breaks ties, never returns Ambiguous.
+            best = self._pick_by_salience(reachable) if len(reachable) > 1 else reachable[0]
+            return {
+                **metadata,
+                "state":       config.STATE_ANSWERABLE,
+                "target_node": best['node_id'],
+            }
+
+        else:  # mode == "label"
+            # Oracle 2: count reachable candidates — preserve ambiguity as signal.
+            # This is the research measurement: did masking destroy uniqueness?
+            if len(reachable) == 1:
+                return {
+                    **metadata,
+                    "state":       config.STATE_ANSWERABLE,
+                    "target_node": reachable[0]['node_id'],
+                }
+            else:
+                return {
+                    **metadata,
+                    "state":           config.STATE_AMBIGUOUS,
+                    "candidate_nodes": [c['node_id'] for c in reachable[:50]],
+                }

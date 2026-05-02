@@ -1,0 +1,55 @@
+Starting Answerability Classification — FLAN-T5-large
+Date: Sat May  2 02:11:34 PM IDT 2026
+Node: s-004
+📂 Loaded 21049 samples | cities: ['manhattan', 'pittsburgh', 'philadelphia']
+🤖 Loading google/flan-t5-large on cuda...
+🚀 Running classification on 21049 samples (batch_size=8)...
+
+✅ Saved 21049 rows → /vol/joberant_nobck/data/NLP_368307701_2526a/adanassi/nlp-allocentric-spatial-reasoning/reports/llm_audits/LLM_ANSWERABILITY_RESULTS_LARGE.parquet
+
+=======================================================
+📊 ANSWERABILITY CLASSIFICATION SUMMARY — google/flan-t5-large
+=======================================================
+
+📋 Parse rate: 21049/21049 = 100.0%
+   Unparseable outputs: 0
+
+🎯 Overall accuracy (all): 18.3%
+   Accuracy (parseable only): 18.3%
+
+📊 Majority class baseline (Contradictory): 42.9%
+
+📊 Per-class results:
+  Answerable     : Acc=99.9% | N=3850 | Pred dist={'Answerable': 3848, 'Contradictory': 2}
+  Ambiguous      : Acc=0.0% | N=8169 | Pred dist={'Answerable': 8165, 'Contradictory': 4}
+  Contradictory  : Acc=0.0% | N=9030 | Pred dist={'Answerable': 9028, 'Contradictory': 2}
+
+📊 Accuracy by variant type:
+variant_type
+mask_both          0.256
+mask_directions    0.023
+mask_landmark      0.267
+
+📊 Predicted label distribution:
+predicted_label
+Answerable       21041
+Contradictory        8
+
+📊 Full classification report:
+               precision    recall  f1-score   support
+
+   Answerable       0.18      1.00      0.31      3850
+    Ambiguous       0.00      0.00      0.00      8169
+Contradictory       0.25      0.00      0.00      9030
+
+     accuracy                           0.18     21049
+    macro avg       0.14      0.33      0.10     21049
+ weighted avg       0.14      0.18      0.06     21049
+
+
+📊 Confusion matrix (rows=oracle, cols=predicted):
+                       Pred: Answerable  Pred: Ambiguous  Pred: Contradictory
+Oracle: Answerable                 3848                0                    2
+Oracle: Ambiguous                  8165                0                    4
+Oracle: Contradictory              9028                0                    2
+Finished at Sat May  2 02:28:53 PM IDT 2026
