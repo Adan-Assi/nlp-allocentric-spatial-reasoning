@@ -1,0 +1,70 @@
+Starting Answerability Classification — OLMo-2-0425-1B-Instruct (Zero-Shot)
+Date: Sat May  2 09:08:33 PM IDT 2026
+Node: s-004
+Loaded 21049 samples | cities: ['manhattan', 'pittsburgh', 'philadelphia']
+Loading allenai/OLMo-2-0425-1B-Instruct on cuda...
+Running classification on 21049 samples (batch_size=8)...
+
+Saved 21049 rows → /vol/joberant_nobck/data/NLP_368307701_2526a/adanassi/nlp-allocentric-spatial-reasoning/reports/llm_audits/LLM_ANSWERABILITY_RESULTS_ZEROSHOT.parquet
+
+=======================================================
+ANSWERABILITY CLASSIFICATION SUMMARY — allenai/OLMo-2-0425-1B-Instruct
+=======================================================
+
+Parse rate: 10009/21049 = 47.6%
+Unparseable outputs: 11040
+
+Overall accuracy (all): 20.1%
+Accuracy (parseable only): 42.3%
+
+Majority class baseline (Contradictory): 42.9%
+
+Per-class results:
+  Answerable     : Acc=1.0% | N=3850 | Pred dist={'UNPARSEABLE': 2264, 'Contradictory': 1509, 'Answerable': 39, 'Ambiguous': 38}
+  Ambiguous      : Acc=4.6% | N=8169 | Pred dist={'Contradictory': 3986, 'UNPARSEABLE': 3752, 'Ambiguous': 373, 'Answerable': 58}
+  Contradictory  : Acc=42.3% | N=9030 | Pred dist={'UNPARSEABLE': 5024, 'Contradictory': 3822, 'Answerable': 101, 'Ambiguous': 83}
+
+Accuracy by variant type:
+variant_type
+mask_both          0.339
+mask_directions    0.130
+mask_landmark      0.136
+
+Sample unparseable outputs:
+llm_output_raw
+exactly one destination              2080
+[MASK]                               1905
+[MASK] (a masked landmark)           1464
+[MASK] (a masked landmark), [DIR      936
+[DIR_MASK]                            907
+[MASK]\n\n[EX Input: [MASK]           745
+[MASK] (a masked landmark)\n\n[EX     737
+[DIR_MASK] or [MASK] (a               294
+[MASK]\n\nA: [DIR_MASK]               196
+[MASK] (a masked landmark) or [       183
+
+Predicted label distribution:
+predicted_label
+UNPARSEABLE      11040
+Contradictory     9317
+Ambiguous          494
+Answerable         198
+
+Full classification report:
+               precision    recall  f1-score   support
+
+   Answerable       0.20      0.02      0.04      1586
+    Ambiguous       0.76      0.08      0.15      4417
+Contradictory       0.41      0.95      0.57      4006
+
+     accuracy                           0.42     10009
+    macro avg       0.45      0.35      0.26     10009
+ weighted avg       0.53      0.42      0.30     10009
+
+
+Confusion matrix (rows=oracle, cols=predicted):
+                       Pred: Answerable  Pred: Ambiguous  Pred: Contradictory
+Oracle: Answerable                   39               38                 1509
+Oracle: Ambiguous                    58              373                 3986
+Oracle: Contradictory               101               83                 3822
+Finished at Sat May  2 09:48:53 PM IDT 2026

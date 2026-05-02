@@ -1,0 +1,73 @@
+Starting original instruction labeling
+Date: Sat May  2 02:57:10 PM IDT 2026
+Node: s-004
+🧠 Loading semantic embedding model on cuda...
+MODEL ID EXTRACTION: 123670455761312
+✅ Semantic matcher ready with 31 categories.
+Total original instructions: 9301
+By city:
+city
+manhattan       7000
+philadelphia    1278
+pittsburgh      1023
+Oracle 1 label distribution (resolve):
+oracle_label
+Answerable       7163
+Contradictory    2138
+
+Processing manhattan (7000 samples)...
+📍 Extracting coordinates from manhattan 'centroid' column...
+🧠 Building semantic_text for manhattan POIs...
+MODEL ID ORACLE: 123670455761312
+🧠 Pre-encoding POI embeddings...
+✅ Encoded 20979 POI embeddings.
+DEBUG: POI Tree Bounds - Lat: 40.7008035 to 40.78725765190852
+DEBUG: POI Tree Bounds - Lon: -74.0191995704594 to -73.9480556
+DEBUG: Calculating Connectivity Map for manhattan...
+DEBUG: Oracle initialized with 74137 nodes and 1 components.
+DEBUG: [CITY: manhattan] Using Salience Ratio: 0.7
+✅ Solver Initialized: Using Oracle's map with 1 components.
+Checkpoint saved after manhattan. Total so far: 7000
+
+Processing philadelphia (1278 samples)...
+📍 Extracting coordinates from philadelphia 'centroid' column...
+🧠 Building semantic_text for philadelphia POIs...
+MODEL ID ORACLE: 123670455761312
+🧠 Pre-encoding POI embeddings...
+✅ Encoded 10302 POI embeddings.
+DEBUG: POI Tree Bounds - Lat: 39.90421688507595 to 39.99993273619913
+DEBUG: POI Tree Bounds - Lon: -75.22318774482177 to -75.0771418666148
+DEBUG: Calculating Connectivity Map for philadelphia...
+DEBUG: Oracle initialized with 63737 nodes and 1 components.
+DEBUG: [CITY: philadelphia] Using Salience Ratio: 0.5
+✅ Solver Initialized: Using Oracle's map with 1 components.
+Checkpoint saved after philadelphia. Total so far: 8278
+
+Processing pittsburgh (1023 samples)...
+📍 Extracting coordinates from pittsburgh 'centroid' column...
+🧠 Building semantic_text for pittsburgh POIs...
+MODEL ID ORACLE: 123670455761312
+🧠 Pre-encoding POI embeddings...
+✅ Encoded 4998 POI embeddings.
+DEBUG: POI Tree Bounds - Lat: 40.415634943116146 to 40.46129810785895
+DEBUG: POI Tree Bounds - Lon: -80.0348241 to -79.92981901477457
+DEBUG: Calculating Connectivity Map for pittsburgh...
+DEBUG: Oracle initialized with 31036 nodes and 1 components.
+DEBUG: [CITY: pittsburgh] Using Salience Ratio: 0.5
+✅ Solver Initialized: Using Oracle's map with 1 components.
+Checkpoint saved after pittsburgh. Total so far: 9301
+
+Saved 9301 rows to /vol/joberant_nobck/data/NLP_368307701_2526a/adanassi/nlp-allocentric-spatial-reasoning/reports/llm_audits/ORIGINAL_ORACLE_LABELS.parquet
+
+Oracle 2 label distribution (label mode):
+oracle_label
+Ambiguous        6928
+Contradictory    2138
+Answerable        235
+
+Oracle 1 vs Oracle 2 cross-tab:
+oracle_label          Ambiguous  Answerable  Contradictory
+oracle_label_resolve                                      
+Answerable                 6928         235              0
+Contradictory                 0           0           2138
+Finished at Sat May  2 05:27:16 PM IDT 2026

@@ -25,6 +25,6 @@ echo "🚀 Starting LLM Masked Evaluation"
 echo "📅 Date: $(date)"
 echo "🖥️  Node: $(hostname)"
 
-python scripts/evaluate_llm_masked.py
+python scripts/secondary_goal_evaluations/evaluate_llm_masked.py
 
 echo "✅ Finished at $(date)"

@@ -1,0 +1,50 @@
+🚀 Starting Labeling Pipeline for: pittsburgh
+📅 Date: Thu Apr 30 12:40:48 AM IDT 2026
+🧠 Loading semantic embedding model...
+MODEL ID EXTRACTION: 127072480653904
+✅ Semantic matcher ready with 31 categories.
+
+🏙️  --- Processing City: PITTSBURGH ---
+DEBUG: Real Path: /vol/joberant_nobck/data/NLP_368307701_2526a/adanassi/nlp-allocentric-spatial-reasoning/data/pittsburgh/pittsburgh_graph.gpickle
+DEBUG: File Size on Disk: 13311261 bytes
+DEBUG: Graph Loaded. Node count: 31036
+📍 Extracting coordinates from pittsburgh 'centroid' column...
+🧠 Building semantic_text for pittsburgh POIs...
+MODEL ID ORACLE: 127072480653904
+🧠 Pre-encoding POI embeddings...
+✅ Encoded 4998 POI embeddings.
+DEBUG: POI Tree Bounds - Lat: 40.415634943116146 to 40.46129810785895
+DEBUG: POI Tree Bounds - Lon: -80.0348241 to -79.92981901477457
+DEBUG: Calculating Connectivity Map for pittsburgh...
+DEBUG: Oracle initialized with 31036 nodes and 1 components.
+DEBUG: [CITY: pittsburgh] Using Salience Ratio: 0.5
+✅ Solver Initialized: Using Oracle's map with 1 components.
+ℹ️ Detected JSONL format for pittsburgh. Switching to lines=True...
+DEBUG: key=8152 (sample#52) -> Label: Contradictory | Cands: 0
+DEBUG: key=8202 (sample#106) -> Label: Contradictory | Cands: 0
+DEBUG: key=8252 (sample#105) -> Label: Answerable | Cands: 34
+DEBUG: key=8302 (sample#41) -> Label: Answerable | Cands: 302
+DEBUG: key=8352 (sample#343) -> Label: Answerable | Cands: 12
+DEBUG: key=8402 (sample#281) -> Label: Answerable | Cands: 57
+DEBUG: key=8452 (sample#382) -> Label: Answerable | Cands: 58
+DEBUG: key=8502 (sample#65) -> Label: Answerable | Cands: 6
+DEBUG: key=8552 (sample#559) -> Label: Contradictory | Cands: 0
+DEBUG: key=8602 (sample#3) -> Label: Answerable | Cands: 1
+DEBUG: key=8652 (sample#312) -> Label: Contradictory | Cands: 0
+DEBUG: key=8702 (sample#585) -> Label: Contradictory | Cands: 0
+DEBUG: key=8752 (sample#4) -> Label: Answerable | Cands: 4
+DEBUG: key=8802 (sample#309) -> Label: Answerable | Cands: 334
+DEBUG: key=8852 (sample#451) -> Label: Contradictory | Cands: 0
+DEBUG: key=8902 (sample#329) -> Label: Answerable | Cands: 26
+DEBUG: key=8952 (sample#405) -> Label: Answerable | Cands: 18
+DEBUG: key=9002 (sample#374) -> Label: Answerable | Cands: 43
+DEBUG: key=9052 (sample#413) -> Label: Answerable | Cands: 5
+DEBUG: key=9102 (sample#357) -> Label: Answerable | Cands: 323
+✅ Success! Generated 1023 labels for pittsburgh.
+📊 Label Distribution:
+oracle_label
+Answerable       705
+Contradictory    318
+Name: count, dtype: int64
+
+✅ Finished processing pittsburgh at Thu Apr 30 01:00:09 AM IDT 2026

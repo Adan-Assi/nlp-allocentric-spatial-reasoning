@@ -1,3 +1,4 @@
+# ---------- MANHATTAN ONLY ----------
 #!/bin/bash
 #SBATCH --job-name=rvs_label_variants
 #SBATCH --output=logs/label_variants_%j.out

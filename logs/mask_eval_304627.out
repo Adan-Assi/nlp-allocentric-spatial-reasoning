@@ -1,0 +1,115 @@
+🚀 Starting LLM Masked Evaluation
+📅 Date: Fri May  1 04:04:13 AM IDT 2026
+🖥️  Node: s-004
+📂 Loaded 21049 samples | cities: ['manhattan', 'pittsburgh', 'philadelphia']
+🔧 Loading oracle for manhattan...
+📍 Extracting coordinates from manhattan 'centroid' column...
+🧠 Building semantic_text for manhattan POIs...
+🧠 Loading semantic embedding model on cpu...
+MODEL ID ORACLE: 135174639477776
+🧠 Pre-encoding POI embeddings...
+✅ Encoded 20979 POI embeddings.
+DEBUG: POI Tree Bounds - Lat: 40.7008035 to 40.78725765190852
+DEBUG: POI Tree Bounds - Lon: -74.0191995704594 to -73.9480556
+DEBUG: Calculating Connectivity Map for manhattan...
+DEBUG: Oracle initialized with 74137 nodes and 1 components.
+DEBUG: [CITY: manhattan] Using Salience Ratio: 0.7
+🔧 Loading oracle for pittsburgh...
+📍 Extracting coordinates from pittsburgh 'centroid' column...
+🧠 Building semantic_text for pittsburgh POIs...
+MODEL ID ORACLE: 135174639477776
+🧠 Pre-encoding POI embeddings...
+✅ Encoded 4998 POI embeddings.
+DEBUG: POI Tree Bounds - Lat: 40.415634943116146 to 40.46129810785895
+DEBUG: POI Tree Bounds - Lon: -80.0348241 to -79.92981901477457
+DEBUG: Calculating Connectivity Map for pittsburgh...
+DEBUG: Oracle initialized with 31036 nodes and 1 components.
+DEBUG: [CITY: pittsburgh] Using Salience Ratio: 0.5
+🔧 Loading oracle for philadelphia...
+📍 Extracting coordinates from philadelphia 'centroid' column...
+🧠 Building semantic_text for philadelphia POIs...
+MODEL ID ORACLE: 135174639477776
+🧠 Pre-encoding POI embeddings...
+✅ Encoded 10302 POI embeddings.
+DEBUG: POI Tree Bounds - Lat: 39.90421688507595 to 39.99993273619913
+DEBUG: POI Tree Bounds - Lon: -75.22318774482177 to -75.0771418666148
+DEBUG: Calculating Connectivity Map for philadelphia...
+DEBUG: Oracle initialized with 63737 nodes and 1 components.
+DEBUG: [CITY: philadelphia] Using Salience Ratio: 0.5
+🤖 Loading google/flan-t5-base on cpu...
+🚀 Running inference on 21049 samples (batch_size=32)...
+
+✅ Saved 21049 rows → /vol/joberant_nobck/data/NLP_368307701_2526a/adanassi/nlp-allocentric-spatial-reasoning/reports/llm_audits/LLM_DEGRADATION_RESULTS.parquet
+
+==================================================
+📊 EVALUATION SUMMARY
+==================================================
+
+🔗 Symbolic resolution rate: 7218/21049 = 34.3%
+   Unresolved (generic/empty LLM output): 13831
+
+🔗 Resolution rate by oracle label:
+oracle_label
+Ambiguous        0.407
+Answerable       0.306
+Contradictory    0.301
+
+📈 250m accuracy (resolved only, n=7218):
+   Overall: 39.2%
+
+📈 250m accuracy by variant type:
+variant_type
+mask_both          0.390
+mask_directions    0.380
+mask_landmark      0.429
+
+📈 250m accuracy by oracle label:
+oracle_label
+Ambiguous        0.390
+Answerable       0.377
+Contradictory    0.401
+
+📈 250m accuracy by category (min 10 samples):
+                     mean  count
+extracted_category              
+HOSPITAL            0.535     43
+MARKET              0.524     21
+BAR                 0.504    234
+THEATRE             0.471     68
+PARK                0.470    183
+PARKING             0.469    207
+SCHOOL              0.462     93
+GARDEN              0.459    268
+MONUMENT            0.450    149
+BENCH               0.446    475
+RESTAURANT          0.439    945
+OFFICE              0.429     70
+PHARMACY            0.411     90
+GYM                 0.405     37
+MUSEUM              0.405     37
+ENTRANCE            0.400     25
+CLOTHES             0.388    116
+SHOP                0.379   1049
+HOTEL               0.374     91
+FOOD                0.370     46
+CAFE                0.367    283
+POST                0.365    104
+ROAD                0.365    208
+BIKE                0.353    770
+UNKNOWN             0.337   1101
+STORE               0.321    134
+CHURCH              0.316     38
+BANK                0.312    157
+LIBRARY             0.300     30
+STATION             0.286     21
+WATER               0.200     35
+BUILDING            0.183     82
+
+📋 Sample outputs (last 5):
+          variant_type   oracle_label                                                                        llm_output_raw  resolution_succeeded success_250m
+21044  mask_directions      Ambiguous                                                                        Diamond Street                 False         None
+21045        mask_both  Contradictory                                                                        Diamond Street                 False         None
+21046    mask_landmark      Ambiguous  The [MASK] on North Sydenham street. It is close to the south corner and 7-Eleven is                 False         None
+21047  mask_directions      Ambiguous                                                                              Sydenham                 False         None
+21048        mask_both      Ambiguous                                                                              Sydenham                 False         None
+✅ Finished at Fri May  1 02:36:36 PM IDT 2026

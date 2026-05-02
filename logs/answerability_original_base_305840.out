@@ -1,0 +1,50 @@
+Starting Answerability Classification on Original Instructions — FLAN-T5-base
+Date: Sat May  2 06:07:55 PM IDT 2026
+Node: s-004
+Loaded 9301 samples | cities: ['manhattan', 'philadelphia', 'pittsburgh']
+Oracle 2 label distribution:
+oracle_label
+Ambiguous        6928
+Contradictory    2138
+Answerable        235
+Loading google/flan-t5-base on cuda...
+Running classification on 9301 samples (batch_size=32)...
+
+Saved 9301 rows → /vol/joberant_nobck/data/NLP_368307701_2526a/adanassi/nlp-allocentric-spatial-reasoning/reports/llm_audits/LLM_ANSWERABILITY_RESULTS_ORIGINAL_BASE.parquet
+
+=======================================================
+ANSWERABILITY CLASSIFICATION SUMMARY — google/flan-t5-base (ORIGINAL)
+=======================================================
+
+Parse rate: 9301/9301 = 100.0%
+
+Overall accuracy: 2.5%
+Majority class baseline (Ambiguous): 74.5%
+
+Per-class results:
+  Answerable     : Acc=100.0% | N=235 | Pred dist={'Answerable': 235}
+  Ambiguous      : Acc=0.0% | N=6928 | Pred dist={'Answerable': 6928}
+  Contradictory  : Acc=0.0% | N=2138 | Pred dist={'Answerable': 2138}
+
+Predicted label distribution:
+predicted_label
+Answerable    9301
+
+Full classification report:
+               precision    recall  f1-score   support
+
+   Answerable       0.03      1.00      0.05       235
+    Ambiguous       0.00      0.00      0.00      6928
+Contradictory       0.00      0.00      0.00      2138
+
+     accuracy                           0.03      9301
+    macro avg       0.01      0.33      0.02      9301
+ weighted avg       0.00      0.03      0.00      9301
+
+
+Confusion matrix (rows=oracle, cols=predicted):
+                       Pred: Answerable  Pred: Ambiguous  Pred: Contradictory
+Oracle: Answerable                  235                0                    0
+Oracle: Ambiguous                  6928                0                    0
+Oracle: Contradictory              2138                0                    0
+Finished at Sat May  2 06:12:22 PM IDT 2026

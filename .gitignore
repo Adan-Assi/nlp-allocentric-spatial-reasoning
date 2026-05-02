@@ -3,6 +3,9 @@
 env/
 venv/
 
+# IDE specific files
+.vscode/
+
 # Python / OS junk
 __pycache__/
 *.py[cod]
@@ -10,8 +13,6 @@ __pycache__/
 .DS_Store
 Thumbs.db
 *.log
-
-# --- ML / DATA SPECIFIC --- #
 
 # --- ML / DATA SPECIFIC --- #
 
@@ -47,7 +48,9 @@ appendix_rescued_samples_v4.csv
 notebooks/cache/
 
 # Slurm Log files
-logs/
+logs/*
+
+*.checkpoint
 
 venv_linux/
 
@@ -70,3 +73,62 @@ venv_linux/
 # Keep evaluation parquet files
 !reports/llm_audits/LLM_DEGRADATION_INPUT.parquet
 !reports/llm_audits/LLM_DEGRADATION_RESULTS.parquet
+
+# Keep final result of run_answerability_base.sh
+!logs/answerability_base_305505.err
+!logs/answerability_base_305505.out
+
+# Keep final result of submit_evaluate.sh (FLAN-T5-base)
+!logs/mask_eval_304627.err
+!logs/mask_eval_304627.out
+
+# Keep final result of submit_evaluate_large.sh (FLAN-T5-large)
+!logs/mask_eval_large_305130.err
+!logs/mask_eval_large_305130.out
+
+# Keep final result of run_answerability_original_base\large.sh
+!logs/answerability_original_base_305840.err
+!logs/answerability_original_base_305840.out
+!logs/answerability_original_large_305841.err
+!logs/answerability_original_large_305841.out
+
+
+# Keep final result of submit_batch_labeling.sh
+!logs/labeling_301058_0.err
+!logs/labeling_301058_0.out
+!logs/labeling_301058_1.err
+!logs/labeling_301058_1.out
+!logs/labeling_301058_2.err
+!logs/labeling_301058_2.out
+
+# Keep final result of run_answerability_large.sh
+!logs/answerability_large_305578.err
+!logs/answerability_large_305578.out
+
+# Keep final result of run_nearest_poi_baseline.sh
+!logs/nearest_poi_baseline_305693.err
+!logs/nearest_poi_baseline_305693.out
+
+# Keep final result of run_label_originals.sh
+!logs/label_originals_305628.err
+!logs/label_originals_305628.out
+
+# Keep final result of run_answerability_4shot.sh (4 examples)
+!logs/answerability_olmo_305889.err
+!logs/answerability_olmo_305889.out
+
+# Keep final result of run_answerability_olmo_shuf.sh (shuffled 4 examples)
+!logs/answerability_olmo_shuf_305973.err
+!logs/answerability_olmo_shuf_305973.out
+
+# Keep final result of run_answerability_0shot.sh (0 examples)
+!logs/answerability_olmo_0shot_305971.err
+!logs/answerability_olmo_0shot_305971.out
+
+# Keep final result of run_answerability_olmo_original.sh (original instructions, 4 examples)
+!logs/answerability_olmo_original_306077.err
+!logs/answerability_olmo_original_306077.out
+
+# Keep final result of submit_label_variants.sh
+!logs/label_variants_301270.err
+!logs/label_variants_301270.out

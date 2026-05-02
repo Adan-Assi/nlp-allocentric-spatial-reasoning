@@ -1,0 +1,60 @@
+Starting Answerability Classification on Original Instructions — OLMo-2-0425-1B-Instruct
+Date: Sat May  2 10:54:44 PM IDT 2026
+Node: s-004
+Loaded 9301 samples | cities: ['manhattan', 'philadelphia', 'pittsburgh']
+Oracle 2 label distribution:
+oracle_label
+Ambiguous        6928
+Contradictory    2138
+Answerable        235
+Loading allenai/OLMo-2-0425-1B-Instruct on cuda...
+Running classification on 9301 samples (batch_size=8)...
+
+Saved 9301 rows → /vol/joberant_nobck/data/NLP_368307701_2526a/adanassi/nlp-allocentric-spatial-reasoning/reports/llm_audits/LLM_ANSWERABILITY_RESULTS_ORIGINAL_OLMO.parquet
+
+=======================================================
+ANSWERABILITY CLASSIFICATION SUMMARY — allenai/OLMo-2-0425-1B-Instruct (ORIGINAL)
+=======================================================
+
+Parse rate: 9300/9301 = 100.0%
+Unparseable outputs: 1
+
+Overall accuracy (all): 62.4%
+Accuracy (parseable only): 62.4%
+
+Majority class baseline (Ambiguous): 74.5%
+
+Per-class results:
+  Answerable     : Acc=15.7% | N=235 | Pred dist={'Ambiguous': 197, 'Answerable': 37, 'Contradictory': 1}
+  Ambiguous      : Acc=83.0% | N=6928 | Pred dist={'Ambiguous': 5747, 'Answerable': 1148, 'Contradictory': 32, 'UNPARSEABLE': 1}
+  Contradictory  : Acc=0.8% | N=2138 | Pred dist={'Ambiguous': 1666, 'Answerable': 454, 'Contradictory': 18}
+
+Sample unparseable outputs:
+llm_output_raw
+right and head south toward the World Financial Center.    1
+
+Predicted label distribution:
+predicted_label
+Ambiguous        7610
+Answerable       1639
+Contradictory      51
+UNPARSEABLE         1
+
+Full classification report:
+               precision    recall  f1-score   support
+
+   Answerable       0.02      0.16      0.04       235
+    Ambiguous       0.76      0.83      0.79      6927
+Contradictory       0.35      0.01      0.02      2138
+
+     accuracy                           0.62      9300
+    macro avg       0.38      0.33      0.28      9300
+ weighted avg       0.64      0.62      0.59      9300
+
+
+Confusion matrix (rows=oracle, cols=predicted):
+                       Pred: Answerable  Pred: Ambiguous  Pred: Contradictory
+Oracle: Answerable                   37              197                    1
+Oracle: Ambiguous                  1148             5747                   32
+Oracle: Contradictory               454             1666                   18
+Finished at Sat May  2 11:19:27 PM IDT 2026
